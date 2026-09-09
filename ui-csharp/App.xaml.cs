@@ -38,15 +38,32 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    // A fault during layout re-throws on every subsequent layout pass, so the
+    // first version of this handler produced one dialog per pass: a wall of
+    // dozens of message boxes stacked across the screen. Report once.
+    private bool _reportedFault;
+
     private void OnDispatcherException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        e.Handled = true;
+        if (_reportedFault) return;
+        _reportedFault = true;
+
         var text = e.Exception.ToString();
-        try { File.WriteAllText("ui-crash.log", text); } catch { /* nothing to do */ }
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(AppContext.BaseDirectory, "ui-crash.log"), text);
+        }
+        catch (Exception)
+        {
+            // Read-only install folder. The dialog still carries the message.
+        }
+
         MessageBox.Show(
             "The interface hit an error and will close. The macro has been stopped.\n\n" +
             e.Exception.Message + "\n\nDetails saved to ui-crash.log.",
             "GPO Fishing Macro", MessageBoxButton.OK, MessageBoxImage.Error);
-        e.Handled = true;
         Shutdown(1);
     }
 }

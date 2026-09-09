@@ -174,6 +174,9 @@ class UIConfig:
     always_on_top: bool = False
     live_preview: bool = False              # show annotated detection frames on the dashboard
     preview_scale: float = 0.35
+    check_for_updates: bool = True          # ask GitHub for the latest release on launch.
+    # The only network call the app makes on its own; turning it off means
+    # update checks happen solely when you press the button in Settings.
 
 
 @dataclass

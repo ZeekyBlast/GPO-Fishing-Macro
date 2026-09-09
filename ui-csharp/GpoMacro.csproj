@@ -27,9 +27,11 @@
     <Company>ZeekyBlast</Company>
     <Authors>ZeekyBlast</Authors>
     <Copyright>Copyright (c) 2026 ZeekyBlast</Copyright>
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <!-- Overridden by tools/build_installer.py from gpo_macro/__init__.py.
+         These values only apply to a plain "dotnet build" during development. -->
+    <Version>0.0.0</Version>
+    <FileVersion>0.0.0.0</FileVersion>
+    <AssemblyVersion>0.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <!-- Self-contained: the person installing this should not have to find and

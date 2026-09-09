@@ -6,7 +6,11 @@
 ; shortcut and the uninstall entry, and uninstalling removes both.
 
 #define AppName        "GPO Fishing Macro"
-#define AppVersion      "1.0.0"
+; Passed in by tools/build_installer.py, which reads it from
+; gpo_macro/__init__.py. The fallback only applies when ISCC is run by hand.
+#ifndef AppVersion
+  #define AppVersion    "0.0.0"
+#endif
 #define AppPublisher    "ZeekyBlast"
 #define AppExe          "GPO Fishing Macro.exe"
 #define AppUrl          "https://github.com/ZeekyBlast/GPO-Fishing-Macro"

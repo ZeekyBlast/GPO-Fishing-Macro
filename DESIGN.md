@@ -135,6 +135,20 @@ Every one teaches rather than shrugging. `"Launch Roblox and open GPO."`,
 f6."`, `"waiting for a bite, readings appear here during a fight"`. The
 dashboard never says only "idle".
 
+## The log
+
+The event log is the one control that takes unbounded input, and it is capped
+at 300 lines for that reason. Two things about it are deliberate rather than
+incidental:
+
+- It does not virtualize. Three hundred rows do not need it, and the
+  virtualizing panel's item generator is where a crash lived: scrolling to the
+  tail from inside the collection's own change notification made WPF run a
+  layout pass while more lines were still arriving, and the generator's count
+  drifted from the collection's.
+- The scroll to the tail is deferred below layout priority and coalesced, so a
+  burst of twenty events costs one scroll once the list has settled.
+
 ## Fallbacks
 
 `start.bat` launches the window. `python main.py` runs the same bot with no

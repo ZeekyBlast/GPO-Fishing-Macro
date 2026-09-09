@@ -8,7 +8,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Threading;
 using System.Windows.Media.Imaging;
 
 namespace GpoMacro;
@@ -24,12 +26,16 @@ public partial class MainWindow : Window
 
     private readonly MainViewModel _model = new();
     private readonly Engine _engine = new();
+    private readonly Updater _updater = new();
+    private UpdateInfo? _pendingUpdate;
 
     private JsonElement _config;
     private bool _haveConfig;
     private string _toggleKey = "f6";
     private bool _livePreview;
     private bool _closing;
+    private bool _scrollQueued;
+    private bool _checkedForUpdates;
 
     public MainWindow()
     {
@@ -44,6 +50,23 @@ public partial class MainWindow : Window
             Native.UseDarkTitleBar(new WindowInteropHelper(this).Handle);
         Loaded += OnLoaded;
         Closing += OnClosing;
+
+#if DEBUG
+        // Ctrl+Shift+L floods the log the way a burst of engine events does.
+        // This is how the "ItemsControl is inconsistent with its items source"
+        // crash is reproduced; it is not compiled into a release build.
+        KeyDown += (_, args) =>
+        {
+            if (args.Key != System.Windows.Input.Key.L
+                || Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Shift)) return;
+            for (var i = 0; i < 400; i++)
+            {
+                var n = i;
+                Dispatcher.BeginInvoke(new Action(
+                    () => _model.AddLog(n % 3 == 0 ? "fish" : "info", $"flood line {n}")));
+            }
+        };
+#endif
     }
 
     // ------------------------------------------------------------- lifecycle
@@ -72,10 +95,24 @@ public partial class MainWindow : Window
         _engine.Dispose();
     }
 
+    /// <summary>Follow the tail of the log.
+    ///
+    /// Never scroll from inside the CollectionChanged handler. Doing so makes
+    /// the ListBox schedule a viewport pass that calls UpdateLayout while more
+    /// lines are still arriving, and the item generator ends up disagreeing
+    /// with the collection it is generating from ("An ItemsControl is
+    /// inconsistent with its items source"). The scroll is deferred below
+    /// layout priority instead, and coalesced, so a burst of twenty events
+    /// costs one scroll after the list has settled.</summary>
     private void ScrollLogToEnd(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action != NotifyCollectionChangedAction.Add || _model.Log.Count == 0) return;
-        LogList.ScrollIntoView(_model.Log[^1]);
+        if (e.Action != NotifyCollectionChangedAction.Add || _scrollQueued) return;
+        _scrollQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            _scrollQueued = false;
+            if (_model.Log.Count > 0) LogList.ScrollIntoView(_model.Log[^1]);
+        }));
     }
 
     // ---------------------------------------------------------------- frames
@@ -178,10 +215,19 @@ public partial class MainWindow : Window
                     field.Load(value);
 
         _toggleKey = HotkeyValue("start_stop");
-        _livePreview = _config.GetProperty("ui").GetProperty("live_preview").GetBoolean();
-        Topmost = _config.GetProperty("ui").GetProperty("always_on_top").GetBoolean();
+        var ui = _config.GetProperty("ui");
+        _livePreview = ui.GetProperty("live_preview").GetBoolean();
+        Topmost = ui.GetProperty("always_on_top").GetBoolean();
         _model.RefreshDirty();
         RefreshCalibrationReadouts();
+
+        // Once per launch, and only if the setting allows it.
+        if (!_checkedForUpdates
+            && ui.TryGetProperty("check_for_updates", out var wanted) && wanted.GetBoolean())
+        {
+            _checkedForUpdates = true;
+            _ = CheckUpdatesAsync(announce: false);
+        }
     }
 
     private string HotkeyValue(string attr) =>
@@ -300,6 +346,87 @@ public partial class MainWindow : Window
             string.IsNullOrEmpty(problem)
                 ? "webhook: test message queued"
                 : $"webhook: {problem}");
+    }
+
+    // --------------------------------------------------------- update actions
+
+    private void CheckUpdates_Click(object sender, RoutedEventArgs e) =>
+        _ = CheckUpdatesAsync(announce: true);
+
+    /// <summary>Ask GitHub what the latest release is.
+    ///
+    /// On launch this runs quietly: someone opening the app to go fishing does
+    /// not want a dialog, and a network hiccup is not worth a red log line. The
+    /// button reports everything.</summary>
+    private async Task CheckUpdatesAsync(bool announce)
+    {
+        _model.UpdateBusy = true;
+        _model.UpdateStatus = "checking...";
+        _model.UpdateBrush = Palette.Named("Faint");
+        try
+        {
+            var (update, status) = await _updater.CheckAsync();
+            _pendingUpdate = update;
+            _model.UpdateAvailable = update is not null;
+            _model.UpdateStatus = status;
+            _model.UpdateBrush = Palette.Named(update is not null ? "Green" : "Faint");
+            if (update is not null)
+                _model.UpdateButtonText =
+                    $"Download and install {update.Tag} ({update.Size / 1_000_000} MB)";
+            if (update is not null || announce)
+                _model.AddLog(update is not null ? "milestone" : "info", $"update check: {status}");
+        }
+        finally
+        {
+            _model.UpdateBusy = false;
+        }
+    }
+
+    private void InstallUpdate_Click(object sender, RoutedEventArgs e) => _ = InstallUpdateAsync();
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_pendingUpdate is null) return;
+
+        // The macro drives the mouse. Replacing the program underneath a
+        // running bot is a bad idea, so stop it first and say so.
+        var confirm = MessageBox.Show(
+            $"Download {_pendingUpdate.Tag} ({_pendingUpdate.Size / 1_000_000} MB) and install it?\n\n" +
+            "The macro will stop and this window will close while the installer runs. " +
+            "Your settings and calibration are kept.",
+            "GPO Fishing Macro", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.OK) return;
+
+        _engine.Send("stop");
+        _model.UpdateBusy = true;
+        _model.UpdateProgressVisible = true;
+        _model.UpdateProgress = 0;
+        _model.UpdateStatus = "downloading...";
+        _model.UpdateBrush = Palette.Named("Amber");
+        try
+        {
+            var progress = new Progress<double>(fraction =>
+            {
+                _model.UpdateProgress = fraction;
+                _model.UpdateStatus = $"downloading... {fraction * 100:F0}%";
+            });
+            var installer = await _updater.DownloadAsync(_pendingUpdate, progress);
+            _model.UpdateStatus = "starting the installer";
+            _model.AddLog("info", $"downloaded {_pendingUpdate.Tag}, handing over to the installer");
+            _engine.Dispose();          // release the mouse before we go
+            Updater.LaunchAndExit(installer);
+        }
+        catch (Exception ex)
+        {
+            _model.UpdateProgressVisible = false;
+            _model.UpdateStatus = "download failed";
+            _model.UpdateBrush = Palette.Named("Red");
+            _model.AddLog("error", $"update failed: {ex.Message}");
+        }
+        finally
+        {
+            _model.UpdateBusy = false;
+        }
     }
 
     // ----------------------------------------------------- calibration actions

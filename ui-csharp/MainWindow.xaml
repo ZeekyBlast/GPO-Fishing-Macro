@@ -233,8 +233,12 @@
                     <DockPanel Margin="12,10">
                         <TextBlock DockPanel.Dock="Top" Text="EVENT LOG"
                                    Style="{StaticResource Heading}" Margin="0,0,0,6" />
+                        <!-- The log is capped at 300 lines, so virtualizing it buys
+                             nothing and its generator is where the
+                             inconsistency crash came from. -->
                         <ListBox x:Name="LogList" Style="{StaticResource LogList}"
-                                 ItemsSource="{Binding Log}" MinHeight="120">
+                                 ItemsSource="{Binding Log}" MinHeight="120"
+                                 VirtualizingPanel.IsVirtualizing="False">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal">
@@ -279,6 +283,7 @@
                 </Border>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,10,0">
+                  <StackPanel>
                     <ItemsControl ItemsSource="{Binding Sections}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -316,6 +321,46 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- Updates. The only network call the app makes on its
+                         own, and the checkbox above turns even that off. -->
+                    <TextBlock Text="UPDATES" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Installing an update runs the official installer over this copy. Your settings and calibration are kept." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding VersionLine}"
+                                           VerticalAlignment="Center" Width="130"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeBody}"
+                                           Foreground="{StaticResource Text2}" />
+                                <Button Style="{StaticResource QuietButton}"
+                                        Content="Check for updates" MinWidth="160"
+                                        IsEnabled="{Binding CanCheckUpdates}"
+                                        Click="CheckUpdates_Click" />
+                                <Button Style="{StaticResource AccentButton}"
+                                        Content="{Binding UpdateButtonText}" MinWidth="180"
+                                        Margin="6,0,0,0"
+                                        IsEnabled="{Binding CanCheckUpdates}"
+                                        Click="InstallUpdate_Click"
+                                        Visibility="{Binding UpdateAvailable,
+                                            Converter={StaticResource BoolToVisible}}" />
+                                <TextBlock Text="{Binding UpdateStatus}" Margin="12,0,0,0"
+                                           VerticalAlignment="Center" TextWrapping="Wrap"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding UpdateBrush}" />
+                            </StackPanel>
+                            <ProgressBar Style="{StaticResource Meter}" Margin="0,10,0,0"
+                                         Value="{Binding UpdateProgress}"
+                                         Foreground="{StaticResource Green}"
+                                         Visibility="{Binding UpdateProgressVisible,
+                                             Converter={StaticResource BoolToVisible}}" />
+                        </StackPanel>
+                    </Border>
+                    <Rectangle Height="12" Fill="Transparent" />
+                  </StackPanel>
                 </ScrollViewer>
             </DockPanel>
         </TabItem>

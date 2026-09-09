@@ -54,6 +54,7 @@ FORM: list[tuple[str, str, str, str, str]] = [
     ("Interface", "ui", "always_on_top", "Window always on top", "bool"),
     ("Interface", "ui", "live_preview", "Live detection preview", "bool"),
     ("Interface", "ui", "preview_scale", "Preview scale", "float"),
+    ("Interface", "ui", "check_for_updates", "Check for updates on launch", "bool"),
 ]
 
 SECTION_NOTES: dict[str, str] = {
@@ -74,7 +75,7 @@ SECTION_NOTES: dict[str, str] = {
     "Webhook": "Posts catches, faults and session summaries to Discord. The URL is a "
                "credential - anyone holding it can post to your channel.",
     "Sound": "Listens to system audio for the rare-spawn cue. Needs a loopback device.",
-    "Interface": "",
+    "Interface": "The update check asks GitHub for the latest release and nothing else. It sends no information about you.",
 }
 
 

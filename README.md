@@ -47,6 +47,15 @@ rights**. It adds a Start Menu entry and, if you tick the box, a desktop
 shortcut. Uninstall it from Settings > Apps like anything else; that removes
 the folder, the shortcuts and your settings file.
 
+### Updating
+
+The app checks GitHub for a newer release when it starts and shows the result
+under **Settings > Updates**, where there is also a **Check for updates**
+button. When one is available, one click downloads that release's installer and
+runs it over your copy; your settings and calibration are kept. The launch
+check is the only network call the app makes on its own, it sends nothing about
+you, and the **Check for updates on launch** box turns it off.
+
 > **Windows will warn you.** The installer is not code-signed, so SmartScreen
 > shows "Windows protected your PC". A signing certificate costs a few hundred
 > dollars a year, which is hard to justify for a fishing macro. Click **More

@@ -3,5 +3,8 @@
 Windows-only. Screen capture + color detection + hold/release minigame control.
 """
 
-__version__ = "1.0.0"
+# The one place the version is written. tools/build_installer.py
+# feeds it to dotnet and to Inno Setup, so the exe, the installer
+# and the update check can never disagree.
+__version__ = "1.0.1"
 APP_NAME = "GPO Fishing Macro"

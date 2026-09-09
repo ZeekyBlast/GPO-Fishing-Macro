@@ -116,6 +116,45 @@ public sealed class MainViewModel : Observable
     private Brush _webhookBrush = Brushes.Gray;
     public Brush WebhookBrush { get => _webhookBrush; set => Set(ref _webhookBrush, value); }
 
+    // ---------------------------------------------------------------- updates
+
+    public string VersionLine => $"version {Updater.CurrentVersionText()}";
+
+    private string _updateStatus = "";
+    public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
+
+    private Brush _updateBrush = Brushes.Gray;
+    public Brush UpdateBrush { get => _updateBrush; set => Set(ref _updateBrush, value); }
+
+    private bool _updateAvailable;
+    public bool UpdateAvailable { get => _updateAvailable; set => Set(ref _updateAvailable, value); }
+
+    private bool _updateBusy;
+    public bool UpdateBusy
+    {
+        get => _updateBusy;
+        set { if (Set(ref _updateBusy, value)) Raise(nameof(CanCheckUpdates)); }
+    }
+
+    public bool CanCheckUpdates => !_updateBusy;
+
+    private double _updateProgress;
+    public double UpdateProgress { get => _updateProgress; set => Set(ref _updateProgress, value); }
+
+    private bool _updateProgressVisible;
+    public bool UpdateProgressVisible
+    {
+        get => _updateProgressVisible;
+        set => Set(ref _updateProgressVisible, value);
+    }
+
+    private string _updateButtonText = "Download and install";
+    public string UpdateButtonText
+    {
+        get => _updateButtonText;
+        set => Set(ref _updateButtonText, value);
+    }
+
     // ------------------------------------------------------------ calibration
 
     private string _regionLine = "not set";

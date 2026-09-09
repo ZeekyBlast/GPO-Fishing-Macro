@@ -54,13 +54,16 @@ def run(label: str, command: list[str]) -> None:
         raise SystemExit(f"{label} failed")
 
 
-def publish_app() -> None:
+def publish_app(version: str) -> None:
     target = BUILD / "app"
     if target.exists():
         shutil.rmtree(target)
     run("publishing the window", [
         "dotnet", "publish", str(ROOT / "ui-csharp"), "-c", "Release",
-        "-o", str(target), "-nologo"])
+        "-o", str(target), "-nologo",
+        f"-p:Version={version}",
+        f"-p:FileVersion={version}.0",
+        f"-p:AssemblyVersion={version}.0"])
     exe = target / "GPO Fishing Macro.exe"
     if not exe.is_file():
         raise SystemExit(f"expected {exe.name} in {target}")
@@ -68,6 +71,26 @@ def publish_app() -> None:
     if stray:
         print(f"note: extra files alongside the exe: {', '.join(stray)}")
     print(f"{exe.name}: {exe.stat().st_size / 1_000_000:.0f} MB, single file")
+
+
+def check_version(expected: str) -> None:
+    """The built exe must carry the version we think we are shipping.
+
+    The updater compares this number against the release tag, so a build that
+    quietly kept an old version would tell every user, forever, that an update
+    is waiting.
+    """
+    exe = BUILD / "app" / "GPO Fishing Macro.exe"
+    info = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         f"(Get-Item '{exe}').VersionInfo.FileVersion"],
+        capture_output=True, text=True)
+    built = (info.stdout or "").strip()
+    if not built.startswith(expected):
+        raise SystemExit(
+            f"version drift: gpo_macro says {expected} but the exe reports "
+            f"{built or 'nothing'}")
+    print(f"version check: exe reports {built}")
 
 
 def audit_sources() -> None:
@@ -108,7 +131,8 @@ def main() -> int:
         run("building the bundled runtime",
             [sys.executable, str(ROOT / "tools" / "build_runtime.py")])
 
-    publish_app()
+    publish_app(__version__)
+    check_version(__version__)
     audit_sources()
 
     DIST.mkdir(exist_ok=True)
