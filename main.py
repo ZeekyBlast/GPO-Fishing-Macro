@@ -15,8 +15,13 @@ import logging
 import sys
 from pathlib import Path
 
-from gpo_macro import APP_NAME, __version__
-from gpo_macro.config import AppConfig, ConfigStore
+# The bundled runtime starts isolated: its ._pth defines sys.path outright and
+# does not include the script's own directory. Put it there before importing
+# anything local, so the engine runs the same however it was launched.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from gpo_macro import APP_NAME, __version__  # noqa: E402
+from gpo_macro.config import AppConfig, ConfigStore  # noqa: E402
 
 SETTINGS_PATH = Path(__file__).with_name("settings.json")
 

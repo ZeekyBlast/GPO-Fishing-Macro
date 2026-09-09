@@ -1,7 +1,10 @@
 @echo off
-rem GPO Fishing Macro launcher - double-click me.
-rem Starts the C# interface, which runs the Python engine as a child process.
-rem Uses the project venv (creating it on first run), never the system Python.
+rem Developer launcher for a source checkout. If you just want to use the
+rem macro, install it instead: toolsuild_installer.py builds a real
+rem installer, and released builds are on the GitHub releases page.
+rem
+rem This creates the project venv if it is missing, installs requirements.txt
+rem into it, and opens the window built by "dotnet build ui-csharp".
 setlocal
 cd /d "%~dp0"
 
@@ -22,11 +25,11 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
-rem A downloaded release ships the built window in MacroUI\; a source checkout
-rem has it under ui-csharp\bin\ once "dotnet build" has run.
-set "UI=MacroUI\MacroUI.exe"
-if not exist "%UI%" set "UI=ui-csharp\bin\Release\net8.0-windows\MacroUI.exe"
-if not exist "%UI%" set "UI=ui-csharp\bin\Debug\net8.0-windows\MacroUI.exe"
+rem A Release build targets win-x64 because it is published self-contained;
+rem a plain Debug build does not.
+set "UI=ui-csharp\bin\Release\net8.0-windows\win-x64\GPO Fishing Macro.exe"
+if not exist "%UI%" set "UI=ui-csharp\bin\Release\net8.0-windows\GPO Fishing Macro.exe"
+if not exist "%UI%" set "UI=ui-csharp\bin\Debug\net8.0-windows\GPO Fishing Macro.exe"
 if not exist "%UI%" (
     echo The interface has not been built yet. Build it once with:
     echo     dotnet build ui-csharp -c Release

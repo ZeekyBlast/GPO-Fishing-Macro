@@ -217,12 +217,18 @@ public sealed class Engine : IDisposable
             " - run MacroUI.exe from inside the macro folder.");
     }
 
-    /// <summary>The project's venv first: it is the only interpreter that is
-    /// guaranteed to have mss, OpenCV and pynput installed.</summary>
+    /// <summary>An interpreter that actually has mss, OpenCV and pynput.
+    ///
+    /// An installed copy ships its own Python under runtime/, so nothing on the
+    /// machine needs to be set up and nothing on PATH can shadow it. A source
+    /// checkout uses the project venv. PATH is the last resort and usually the
+    /// wrong answer, which is why a missing import is reported plainly rather
+    /// than left to fail deep inside an import trace.</summary>
     private static string FindPython(string root)
     {
         foreach (var candidate in new[]
                  {
+                     Path.Combine(root, "runtime", "python.exe"),   // installed
                      Path.Combine(root, ".venv", "Scripts", "python.exe"),
                      Path.Combine(root, "venv", "Scripts", "python.exe"),
                  })

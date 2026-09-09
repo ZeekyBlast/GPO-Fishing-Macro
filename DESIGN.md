@@ -1,4 +1,4 @@
-# DESIGN.md — GPO Fishing Macro
+# DESIGN.md: GPO Fishing Macro
 
 The app is an **instrument**, not a game skin. Two people use it: someone
 glancing across the room to check it is still fishing, and the same person an
@@ -36,7 +36,7 @@ a second copy of the UI:
 Calibration coordinates are the one place a shell bug *would* be silent, so
 they are handled carefully: the process is manifested PerMonitorV2 to match
 `main.py`, and the overlay converts its own mouse events with `PointToScreen`
-rather than reading the cursor — by the time a handler runs the pointer has
+rather than reading the cursor, because by the time a handler runs the pointer has
 moved, and a quick press-and-drag would anchor pixels away from the press.
 
 ## Theme
@@ -66,7 +66,7 @@ Near-black surfaces, one committed accent, two fault colours.
 **Green is the only accent, and it means one thing: the hook is on the fish.**
 That is the entire job of this program, so green fills the on-target meter,
 marks HOLD, marks a catch, and marks Start. It is never decoration and never
-marks mere selection — the tab bar stays grey for exactly that reason.
+marks mere selection; the tab bar stays grey for exactly that reason.
 
 Amber is for states that want attention but are not yet wrong: waiting,
 paused, recast timeout, an uncalibrated region. Red is only for faults.
@@ -84,7 +84,7 @@ any pair falls short:
 python tests/test_theme.py
 ```
 
-That check is what caught `FAINT` at `#5B6569` — fine on `BG`, 2.77:1 on
+That check is what caught `FAINT` at `#5B6569`: fine on `BG`, 2.77:1 on
 `SURFACE_2`. It is now `#646E72`.
 
 ## Typography
@@ -103,14 +103,14 @@ headings · 15px the live readout · 22px counters · 30px the state word.
 
 ## Layout
 
-- **Panels are for things that are genuinely separate** — the status strip, one
+- **Panels are for things that are genuinely separate**: the status strip, one
   counter tile, the reel readout, the log, one settings section. Not for
   fencing off every heading. Nested panels are always wrong here.
 - Headings and explanatory notes sit *on the page*, above the panel they
   describe, never inside it.
 - `PAD` 12px between panels and inside them, `GAP` 6px between related
   controls, and no interactive row below 26px.
-- The dashboard is fixed top to bottom — status, counters, reel, log — so the
+- The dashboard is fixed top to bottom (status, counters, reel, log), so the
   thing you glance at never moves.
 
 ## Components
@@ -122,7 +122,7 @@ headings · 15px the live readout · 22px counters · 30px the state word.
 - **Reel readout.** The tuning surface: HOLD/drop, on/off the fish, on-target
   percentage as both a number and a meter, then bar and fish positions with
   their velocities and the error between them.
-- **Buttons.** Quiet by default — surface fill, hairline border, plain text.
+- **Buttons.** Quiet by default: surface fill, hairline border, plain text.
   Only Start is filled with the accent. Panic is a quiet button with red text,
   not a red slab: it should be findable, not shouted.
 - **Log line.** `HH:MM:SS` then a one-character mark then the message, coloured
@@ -132,13 +132,13 @@ headings · 15px the live readout · 22px counters · 30px the state word.
 
 Every one teaches rather than shrugging. `"Launch Roblox and open GPO."`,
 `"Calibrate the scan region before starting."`, `"Ready. Start here or press
-f6."`, `"waiting for a bite — readings appear here during a fight"`. The
+f6."`, `"waiting for a bite, readings appear here during a fight"`. The
 dashboard never says only "idle".
 
 ## Fallbacks
 
 `start.bat` launches the window. `python main.py` runs the same bot with no
-window and no shell, reading the same `settings.json` — useful when the
+window and no shell, reading the same `settings.json`, useful when the
 interface itself is the thing that is broken. Calibration needs the window.
 
 ## Discord

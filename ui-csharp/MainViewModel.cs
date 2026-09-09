@@ -224,7 +224,7 @@ public sealed class MainViewModel : Observable
             Meter = 0;
             MeterBrush = Palette.Named("GreenDim");
             TelemetryLine = running
-                ? "waiting for a bite - readings appear here during a fight"
+                ? "waiting for a bite, readings appear here during a fight"
                 : "start the macro to see live readings";
             TelemetryBrush = Palette.Named("Faint");
             return;

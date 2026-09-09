@@ -2,14 +2,14 @@
 
 A clean-room auto-fishing macro for **Grand Piece Online** (Roblox) on Windows.
 Screen capture + color detection + a PID controller that plays the reel
-minigame — no game injection, no memory reading, just simulated mouse/keyboard.
+minigame: no game injection, no memory reading, just simulated mouse/keyboard.
 
 Inspired by [K's GPO Macros](https://github.com/K3nD4rk-Code-Developer/Ks-GPO-Macros)
 (all code written from scratch). Built to be lightweight: **8 dependencies
-instead of 104** — no PyTorch, no OCR, no audio SDK stack.
+instead of 104**: no PyTorch, no OCR, no audio SDK stack.
 
 > ⚠️ **Use at your own risk.** Automating gameplay violates Roblox's Terms of
-> Service and can get your account banned — use an alt, not your main.
+> Service and can get your account banned; use an alt, not your main.
 > Personal-use software: don't sell it.
 
 ## Features
@@ -17,13 +17,13 @@ instead of 104** — no PyTorch, no OCR, no audio SDK stack.
 - **Auto fishing loop**: focus Roblox → cast → detect the minigame → track the
   fish zone with a PID-controlled hold/release → loot → recast
 - **Auto-calibration**: finds the minigame on screen by its signature colors,
-  or drag-select a region manually — works on any resolution
+  or drag-select a region manually (works on any resolution)
 - **Window-relative coordinates**: move/resize Roblox without recalibrating
 - **Recovery**: black/loading screens, recast timeouts, Roblox losing focus
   (auto-pause), reel-timeout failsafe, panic key instantly releases the mouse
 - **Live dashboard**: fish count, fish/hour, session uptime, event log,
   optional live detection preview
-- **Auto bait buy/craft** and **devil-fruit auto-store** — finds which hotbar
+- **Auto bait buy/craft** and **devil-fruit auto-store**: finds which hotbar
   slot holds a fruit, stores it, and reads the result banner. No OCR
 - **Discord webhook** notifications: fruit stored (with a screenshot of the
   banner naming it), milestones, errors, recast timeouts, periodic session
@@ -32,34 +32,52 @@ instead of 104** — no PyTorch, no OCR, no audio SDK stack.
   a loud spike (e.g. Megalodon roar), beeps + pings you
 - Rebindable global hotkeys, all settings auto-saved to `settings.json`
 
-## Setup
+## Install
 
-Python 3.10+ (tested on 3.11), Windows 10/11.
+Windows 10 or 11, 64-bit. Download **GPO Fishing Macro Setup.exe** from the
+[releases page](https://github.com/ZeekyBlast/GPO-Fishing-Macro/releases) and run it.
 
-The interface is a C# (WPF) app; the macro itself is still Python. The window
-runs `python main.py --rpc` as a child process and talks to it over a JSON
-pipe, so both halves have to be present.
+Nothing else is needed. No Python, no .NET, no pip: the installer carries its
+own copy of everything the macro imports, so it cannot collide with, or be
+broken by, anything already on your machine.
 
-**Easiest:** double-click **`start.bat`** — it uses the project's venv
-(creating it and installing dependencies on first run) and starts the C#
-window. Never launch `main.py` directly by double-click: that runs your
-*system* Python, which has none of the dependencies, so it just flashes and
-closes.
+It installs to `%LocalAppData%\Programs\GPO Fishing Macro`, the same
+per-user location Chrome and VS Code use, so **it never asks for administrator
+rights**. It adds a Start Menu entry and, if you tick the box, a desktop
+shortcut. Uninstall it from Settings > Apps like anything else; that removes
+the folder, the shortcuts and your settings file.
 
-From a terminal instead:
+> **Windows will warn you.** The installer is not code-signed, so SmartScreen
+> shows "Windows protected your PC". A signing certificate costs a few hundred
+> dollars a year, which is hard to justify for a fishing macro. Click **More
+> info > Run anyway**, or build it yourself from source below and trust your
+> own copy instead.
+
+## Running from source
+
+If you would rather build it, you need Python 3.10+ (tested on 3.11) and the
+[.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0):
 
 ```bat
 py -3.11 -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 dotnet build ui-csharp -c Release
+run-from-source.bat
 ```
 
-Building the window needs the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-once; running it afterwards needs only the .NET 8 Desktop Runtime, which most
-Windows machines already have. There is no second window: `python main.py`
-runs the bot headless with log output, and that is the only alternative.
+`run-from-source.bat` creates the venv if it is missing, then opens the window.
+`python main.py` runs the same bot with no window at all, printing to the
+console, which is useful when the interface itself is what is misbehaving.
 
-A venv already exists in this folder if you cloned it set up — just activate it.
+To produce an installer of your own:
+
+```bat
+.venv\Scripts\python toolsuild_installer.py
+```
+
+That bundles the runtime, runs the self-checks against it, publishes the
+window as one self-contained file, and writes `dist\GPO Fishing Macro Setup
+<version>.exe`.
 
 ## Quick start
 
@@ -67,12 +85,12 @@ A venv already exists in this folder if you cloned it set up — just activate i
 2. Open the **Calibration** tab:
    - Start a fishing minigame manually, then click **Auto-detect region**
      (or **Drag-select region** around the gauge).
-   - Click **Test detection** — the saved screenshot should box the whole
+   - Click **Test detection**: the saved screenshot should box the whole
      gauge, with the bar centre and the fish marker drawn on it.
    - Optional: bait points, devil-fruit storage, colour re-sampling if Roblox
      changes its UI.
 3. Press **Start** (or the toggle hotkey, default **F6**). Panic key is
-   **F8** — it stops everything and releases the mouse instantly.
+   **F8**, which stops everything and releases the mouse instantly.
 4. Watch the dashboard. The reel panel shows the on-the-fish percentage for
    the current fight; tune **Bar lead** in Settings against that number.
 
@@ -92,18 +110,18 @@ Verified against in-game screenshots and the GPO wiki's fishing guide:
   bar's speed) so momentum stops on the fish. Within the bar's extent it
   coasts.
 - **Catch vs escape**: a fish is only counted if the line was green
-  (overlapping) right before the gauge disappears — GPO ends the minigame the
+  (overlapping) right before the gauge disappears, because GPO ends the minigame the
   same way on a miss. Escapes are tracked separately on the dashboard.
 - If the bar ever moves the wrong way on your setup, tick **Invert raise/drop**
   in Settings; you can also disable tap mode there to get a plain hold/release.
 
 ## Calibration notes
 
-- All coordinates are stored **relative to the Roblox window** — moving the
+- All coordinates are stored **relative to the Roblox window**, so moving the
   window is fine; resizing may require recalibration.
 - If detection gets flaky after a game update, re-sample the colours from the
   Calibration tab (gauge blue, bar black). The fish marker has no colour to
-  sample — it is found as the thin run that is neither of those.
+  sample; it is found as the thin run that is neither of those.
 - Give the scan region room. The gauge is anchored to the bobber, so it slides
   as the camera moves; a box fitted tightly to it clips the bar mid-fight,
   which looks exactly like the gauge disappearing.
@@ -111,12 +129,12 @@ Verified against in-game screenshots and the GPO wiki's fishing guide:
 ### Devil-fruit storing
 
 Every fruit uses the same hotbar icon, so the macro cannot know which fruit it
-is holding — and GPO refuses a fruit you already own. It therefore tries each
+is holding, and GPO refuses a fruit you already own. It therefore tries each
 slot once and lets the game answer:
 
-1. Match the fruit icon across the hotbar — only to answer *is there a fruit at
+1. Match the fruit icon across the hotbar, only to answer *is there a fruit at
    all*, so a normal catch costs one screenshot and nothing else.
-2. If there is, try the slot keys `1`–`9` then `0` in turn. Slots are equipped
+2. If there is, try the slot keys `1` to `9` then `0` in turn. Slots are equipped
    by their number key (clicking a slot does **not** equip in GPO), and which
    key a slot answers to cannot be read from where it sits: only owned slots
    are drawn while every item keeps its original binding, so a hotbar reading
@@ -124,15 +142,15 @@ slot once and lets the game answer:
 3. The green **Store Fruit** prompt only appears while a devil fruit is held,
    which makes it both the "is this slot a fruit" test and the button to press.
    It is searched for near the calibrated anchor rather than assumed to sit
-   under it — it is a proximity prompt, and an anchor a few pixels off its edge
+   under it: it is a proximity prompt, and an anchor a few pixels off its edge
    would miss every time.
-4. Watch the banner strip. `New Item <name>` means stored — the banner is
+4. Watch the banner strip. `New Item <name>` means stored; the banner is
    screenshotted and posted to Discord, which is how you learn which fruit it
    was. `You can only store one of each fruit!` is written in red, and red is
    how the macro tells refusal from success without reading a character.
 5. On a refusal, press the drop key (Backspace) while the fruit is still held,
    so the duplicate despawns instead of clogging the hotbar. **This destroys
-   the item**, and only ever runs after GPO has itself refused the store —
+   the item**, and only ever runs after GPO has itself refused the store,
    never on a guess, never on a click that got no answer.
 
    *Drop fruits you already own* gates the whole feature: switch it off and
@@ -140,7 +158,7 @@ slot once and lets the game answer:
    that nothing can clear, which is worse than leaving fishing alone.
 6. Re-equip the rod, and put the cursor back where it was found. The cast aims
    at wherever the cursor is, so a routine that clicks menus has to hand the
-   aim back — otherwise the next cast goes into the dock, or into the bait list
+   aim back; otherwise the next cast goes into the dock, or into the bait list
    that sits under the storage prompt's position once you are at the water.
 
 Only one fruit is handled per pass, with the hotbar re-read each time: removing
@@ -149,7 +167,7 @@ frame it was measured in.
 
 Refusals are normal and are not logged as errors. Calibration needs four
 things, all on the Calibration tab: the **fruit icon** (snip one from a hotbar
-slot), the **hotbar row** (a box containing every slot — it does not need to
+slot), the **hotbar row** (a box containing every slot, which does not need to
 line up with them), the **banner strip**, and a point anywhere on the **Store
 button**, which anchors the search for it.
 
@@ -167,7 +185,8 @@ Same bot, no window: hotkeys work, events print to the terminal and
 ```bat
 .venv\Scripts\python -m gpo_macro.vision                 # live detection preview (q to quit)
 .venv\Scripts\python -m gpo_macro.controller             # PID tuning simulation
-.venv\Scripts\python testsun_all.py                    # every self-check
+.venv\Scripts\python tests
+un_all.py                    # every self-check
 .venv\Scripts\python tools\grab_raw.py --wait            # dump raw gauge frames
 ```
 

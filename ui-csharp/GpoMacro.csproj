@@ -6,14 +6,42 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>MacroUI</AssemblyName>
+    <AssemblyName>GPO Fishing Macro</AssemblyName>
     <RootNamespace>GpoMacro</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>assets\app.ico</ApplicationIcon>
     <!-- Coordinates cross a process boundary as raw pixels, so both sides must
          agree on what a pixel is: the manifest pins PerMonitorV2 to match
          main.py's SetProcessDpiAwareness(2). -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+
+  <!-- Shown in the file's Properties > Details tab and by SmartScreen. An
+       unsigned binary with blank publisher fields is exactly what a person is
+       right to be suspicious of, so these are filled in honestly. -->
+  <PropertyGroup>
+    <Product>GPO Fishing Macro</Product>
+    <AssemblyTitle>GPO Fishing Macro</AssemblyTitle>
+    <Description>Auto-fishing macro for Grand Piece Online.</Description>
+    <Company>ZeekyBlast</Company>
+    <Authors>ZeekyBlast</Authors>
+    <Copyright>Copyright (c) 2026 ZeekyBlast</Copyright>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <!-- Self-contained: the person installing this should not have to find and
+       install a .NET runtime first. Single-file keeps the install folder from
+       looking like a pile of DLLs. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
