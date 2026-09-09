@@ -1,0 +1,385 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- Tokens. Same values as gpo_macro/ui/theme.py; see DESIGN.md for the
+         reasoning. Nothing below this block hard-codes a colour or a gap.
+         Green is THE accent and means one thing: the hook is on the fish. -->
+
+    <Color x:Key="BgColor">#FF0C0E10</Color>
+    <Color x:Key="SurfaceColor">#FF141719</Color>
+    <Color x:Key="Surface2Color">#FF1B1F22</Color>
+    <Color x:Key="LineColor">#FF252A2E</Color>
+    <Color x:Key="LineStrongColor">#FF3A4247</Color>
+    <Color x:Key="TextColor">#FFE9ECEE</Color>
+    <Color x:Key="Text2Color">#FFBFC6C9</Color>
+    <Color x:Key="MutedColor">#FF8A9296</Color>
+    <Color x:Key="FaintColor">#FF646E72</Color>
+    <Color x:Key="GreenColor">#FF4EC98A</Color>
+    <Color x:Key="GreenDimColor">#FF1E3A2C</Color>
+    <Color x:Key="AmberColor">#FFE0A33A</Color>
+    <Color x:Key="RedColor">#FFC2453F</Color>
+
+    <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}" />
+    <SolidColorBrush x:Key="Surface" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="Surface2" Color="{StaticResource Surface2Color}" />
+    <SolidColorBrush x:Key="Line" Color="{StaticResource LineColor}" />
+    <SolidColorBrush x:Key="LineStrong" Color="{StaticResource LineStrongColor}" />
+    <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}" />
+    <SolidColorBrush x:Key="Text2" Color="{StaticResource Text2Color}" />
+    <SolidColorBrush x:Key="Muted" Color="{StaticResource MutedColor}" />
+    <SolidColorBrush x:Key="Faint" Color="{StaticResource FaintColor}" />
+    <SolidColorBrush x:Key="Green" Color="{StaticResource GreenColor}" />
+    <SolidColorBrush x:Key="GreenDim" Color="{StaticResource GreenDimColor}" />
+    <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}" />
+    <SolidColorBrush x:Key="Red" Color="{StaticResource RedColor}" />
+
+    <!-- Mono for anything that is a number, an identifier, a label or a status.
+         Sans for sentences a human wrote. That split is the whole instrument
+         look. Consolas is the fallback where Cascadia Mono is absent. -->
+    <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+    <FontFamily x:Key="Sans">Segoe UI</FontFamily>
+
+    <sys:Double x:Key="SizeMeta">10</sys:Double>
+    <sys:Double x:Key="SizeLabel">11</sys:Double>
+    <sys:Double x:Key="SizeBody">12</sys:Double>
+    <sys:Double x:Key="SizeHead">14</sys:Double>
+    <sys:Double x:Key="SizeReadout">15</sys:Double>
+    <sys:Double x:Key="SizeCounter">22</sys:Double>
+    <sys:Double x:Key="SizeHero">30</sys:Double>
+
+    <Thickness x:Key="Pad">12</Thickness>
+    <Thickness x:Key="Gap">6</Thickness>
+
+    <BooleanToVisibilityConverter x:Key="BoolToVisible" />
+
+    <!-- Panel: a raised surface, for things that are genuinely separate.
+         Never nested, never used to fence off a heading. -->
+    <Style x:Key="Panel" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+    </Style>
+
+    <Style x:Key="Heading" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeLabel}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="Margin" Value="0,12,0,2" />
+    </Style>
+
+    <!-- Notes teach rather than decorate: every one says what to do next. -->
+    <Style x:Key="Note" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeLabel}" />
+        <Setter Property="Foreground" Value="{StaticResource Faint}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="MaxWidth" Value="820" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Margin" Value="0,0,0,6" />
+    </Style>
+
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource Text2}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Readout" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Foreground" Value="{StaticResource Text2}" />
+    </Style>
+
+    <!-- Buttons are quiet by default: surface fill, hairline border, plain
+         text. Only Start is filled with the accent. -->
+    <Style x:Key="QuietButton" TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Line}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LineStrong}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="{StaticResource Faint}" />
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Panic is a quiet button with red text, not a red slab: findable, not
+         shouted. -->
+    <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+        <Setter Property="Foreground" Value="{StaticResource Red}" />
+    </Style>
+
+    <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+        <Setter Property="Background" Value="{StaticResource Green}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Green}" />
+        <Setter Property="Foreground" Value="{StaticResource Bg}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="MinHeight" Value="32" />
+    </Style>
+
+    <Style x:Key="Field" TargetType="TextBox">
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="CaretBrush" Value="{StaticResource Green}" />
+        <Setter Property="SelectionBrush" Value="{StaticResource GreenDim}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LineStrong}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SecretField" TargetType="PasswordBox">
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="CaretBrush" Value="{StaticResource Green}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="Check" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource Text2}" />
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Border x:Name="Box" Width="18" Height="18" CornerRadius="3"
+                                Background="{StaticResource Surface2}"
+                                BorderBrush="{StaticResource LineStrong}" BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <Path x:Name="Tick" Visibility="Collapsed" Stretch="Uniform"
+                                  Margin="3" Data="M 0,5 L 4,9 L 11,0"
+                                  Stroke="{StaticResource Bg}" StrokeThickness="2" />
+                        </Border>
+                        <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Green}" />
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Green}" />
+                            <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Green}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The tab bar is chrome, so it stays grey. Green never marks mere
+         selection - only "on the fish". -->
+    <Style x:Key="TabHeader" TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="4"
+                            Padding="18,7" Margin="0,0,4,0">
+                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface2}" />
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="IsSelected" Value="False" />
+                                <Condition Property="IsMouseOver" Value="True" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface}" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The tab strip is the only chrome: no border box, no panel behind it. -->
+    <Style x:Key="FlatTabControl" TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <DockPanel>
+                        <TabPanel DockPanel.Dock="Top" IsItemsHost="True" Margin="12,8,12,6"
+                                  Background="Transparent" HorizontalAlignment="Left" />
+                        <ContentPresenter ContentSource="SelectedContent" />
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The on-target meter. Green fills it, and only ever means "on the
+         fish"; the dim track is the accent at rest. -->
+    <Style x:Key="Meter" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="Foreground" Value="{StaticResource GreenDim}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="3"
+                            ClipToBounds="True">
+                        <Grid>
+                            <Rectangle x:Name="PART_Track" />
+                            <Rectangle x:Name="PART_Indicator" HorizontalAlignment="Left"
+                                       Fill="{TemplateBinding Foreground}" RadiusX="3" RadiusY="3" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="LogList" TargetType="ListBox">
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Padding" Value="0,1" />
+                    <Setter Property="Focusable" Value="False" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListBoxItem">
+                                <ContentPresenter Margin="{TemplateBinding Padding}" />
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Applied implicitly, so the light Windows scrollbar never shows up
+         against the near-black surfaces. -->
+    <Style x:Key="DarkScrollBar" TargetType="ScrollBar">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Border Background="Transparent" Padding="2">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border x:Name="Grip" CornerRadius="3"
+                                                    Background="{StaticResource Line}" />
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Grip" Property="Background"
+                                                            Value="{StaticResource LineStrong}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0"
+                                              Focusable="False" IsTabStop="False" />
+                            </Track.IncreaseRepeatButton>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0"
+                                              Focusable="False" IsTabStop="False" />
+                            </Track.DecreaseRepeatButton>
+                        </Track>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Orientation" Value="Horizontal">
+                            <Setter TargetName="PART_Track" Property="Orientation"
+                                    Value="Horizontal" />
+                            <Setter TargetName="PART_Track" Property="IsDirectionReversed"
+                                    Value="False" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="Height" Value="10" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="ScrollBar" BasedOn="{StaticResource DarkScrollBar}" />
+
+</ResourceDictionary>

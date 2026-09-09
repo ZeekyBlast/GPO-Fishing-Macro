@@ -1,0 +1,6 @@
+mss>=9.0
+numpy>=1.26
+opencv-python>=4.9
+pynput>=1.7
+requests>=2.31
+sounddevice>=0.4.6

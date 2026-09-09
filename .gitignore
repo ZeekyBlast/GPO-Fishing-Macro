@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Personal configuration and calibration.
+# settings.json holds your Discord webhook URL, which is a credential: anyone
+# who has it can post to your channel. It never belongs in a commit or a zip.
+# settings.example.json is the checked-in template.
+settings.json
+templates/
+
+# Runtime output
+gpo_macro.log
+gpo_macro.log.*
+crash.log
+ui-crash.log
+test_detection.png
+captures/
+raw_capture*.png
+Sounds/
+
+# C# build output
+ui-csharp/bin/
+ui-csharp/obj/
+
+# Release packaging
+dist/
+
+# Tooling
+.zcode/
+.impeccable/
+.pyproject/
+*.egg-info/
+build/

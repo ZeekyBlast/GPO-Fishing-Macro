@@ -1,0 +1,105 @@
+{
+  "hotkeys": {
+    "start_stop": "f6",
+    "panic": "f8"
+  },
+  "detection": {
+    "bar_blue": [
+      85,
+      170,
+      255
+    ],
+    "track_gray": [
+      25,
+      25,
+      25
+    ],
+    "color_tolerance": 20,
+    "min_bar_pixels": 80,
+    "black_screen_threshold": 0.5,
+    "scan_loop_delay": 0.02
+  },
+  "controller": {
+    "invert": false,
+    "bar_lead": 0.24,
+    "fish_lead": 0.0
+  },
+  "fishing": {
+    "equip_rod": true,
+    "rod_key": "1",
+    "cast_hold_duration": 0.05,
+    "post_cast_delay": 0.7,
+    "recast_timeout": 25.0,
+    "loot_delay": 0.15,
+    "reel_max_duration": 60.0,
+    "pause_on_focus_lost": true,
+    "action_jitter": 0.1
+  },
+  "scan_region": {
+    "x1": 0,
+    "y1": 0,
+    "x2": 0,
+    "y2": 0
+  },
+  "bait": {
+    "auto_buy": false,
+    "loops_per_purchase": 100,
+    "auto_craft": false,
+    "loops_per_craft": 5,
+    "crafts_per_cycle": 40,
+    "shop_open": [],
+    "shop_buy_common": [],
+    "shop_confirm": [],
+    "shop_close": [],
+    "craft_open": [],
+    "craft_select_recipe": [],
+    "craft_select_amount": [],
+    "craft_button": [],
+    "craft_confirm": [],
+    "craft_close": []
+  },
+  "fruit": {
+    "auto_store": false,
+    "template_path": "templates/fruit.png",
+    "match_threshold": 0.8,
+    "hotbar_region": {
+      "x1": 0,
+      "y1": 0,
+      "x2": 0,
+      "y2": 0
+    },
+    "banner_region": {
+      "x1": 0,
+      "y1": 0,
+      "x2": 0,
+      "y2": 0
+    },
+    "store_point": [],
+    "store_search_x": 220,
+    "store_search_y": 90,
+    "store_wait": 3.0,
+    "drop_duplicates": true,
+    "drop_key": "backspace"
+  },
+  "webhook": {
+    "url": "",
+    "user_id": "",
+    "ping_on_fruit": true,
+    "ping_on_error": true,
+    "log_milestones": true,
+    "milestone_every": 100,
+    "periodic_stats_minutes": 30
+  },
+  "sound": {
+    "enabled": false,
+    "sensitivity": 3.0,
+    "trigger_hold": 0.4,
+    "cooldown": 60.0,
+    "alert_wav": ""
+  },
+  "ui": {
+    "always_on_top": false,
+    "live_preview": false,
+    "preview_scale": 0.35
+  }
+}

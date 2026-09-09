@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MacroUI</AssemblyName>
+    <RootNamespace>GpoMacro</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Coordinates cross a process boundary as raw pixels, so both sides must
+         agree on what a pixel is: the manifest pins PerMonitorV2 to match
+         main.py's SetProcessDpiAwareness(2). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+  </ItemGroup>
+
+</Project>

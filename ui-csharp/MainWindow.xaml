@@ -1,0 +1,399 @@
+<Window x:Class="GpoMacro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:GpoMacro"
+        xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
+        Title="GPO Fishing Macro"
+        Height="740" Width="1020" MinHeight="640" MinWidth="900"
+        Background="{StaticResource Bg}"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <!-- One row of the settings form. A checkbox spans the row; everything
+             else is label plus field. -->
+        <DataTemplate x:Key="BoolField">
+            <CheckBox Style="{StaticResource Check}" Content="{Binding Label}"
+                      IsChecked="{Binding Flag, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      Margin="0,3" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="TextField">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" />
+                    <ColumnDefinition Width="260" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding Label}"
+                           TextWrapping="Wrap" Margin="0,0,6,0" />
+                <TextBox Grid.Column="1" Style="{StaticResource Field}"
+                         Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </Grid>
+        </DataTemplate>
+
+        <!-- The webhook URL is a credential: masked in the field, and never
+             echoed anywhere else in the app. -->
+        <DataTemplate x:Key="SecretField">
+            <Grid Margin="0,3">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" />
+                    <ColumnDefinition Width="260" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding Label}"
+                           TextWrapping="Wrap" Margin="0,0,6,0" />
+                <PasswordBox Grid.Column="1" Style="{StaticResource SecretField}"
+                             Loaded="Secret_Loaded" PasswordChanged="Secret_Changed" />
+            </Grid>
+        </DataTemplate>
+
+        <local:FieldTemplateSelector x:Key="FieldSelector"
+                                     BoolTemplate="{StaticResource BoolField}"
+                                     TextTemplate="{StaticResource TextField}"
+                                     SecretTemplate="{StaticResource SecretField}" />
+    </Window.Resources>
+
+    <TabControl Style="{StaticResource FlatTabControl}"
+                ItemContainerStyle="{StaticResource TabHeader}">
+
+        <!-- ============================================ DASHBOARD ========= -->
+        <TabItem Header="Dashboard">
+            <Grid Margin="12,0,12,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Status strip: the state word, the window it is driving, a
+                     sentence saying what happens next, and the controls. -->
+                <Border Style="{StaticResource Panel}">
+                    <Grid Margin="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.RowSpan="2" VerticalAlignment="Center"
+                                   Margin="0,0,24,0"
+                                   FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeHero}" FontWeight="Bold"
+                                   Text="{Binding StateWord}" Foreground="{Binding StateBrush}" />
+
+                        <TextBlock Grid.Column="1" VerticalAlignment="Bottom"
+                                   FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeMeta}"
+                                   Foreground="{StaticResource Faint}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding WindowLine}" />
+                        <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Top"
+                                   Margin="0,3,0,0" TextWrapping="Wrap"
+                                   FontFamily="{StaticResource Sans}"
+                                   FontSize="{StaticResource SizeLabel}"
+                                   Text="{Binding Hint}" Foreground="{Binding HintBrush}" />
+
+                        <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal"
+                                    VerticalAlignment="Center" Margin="18,0,0,0">
+                            <Button x:Name="StartButton" Style="{StaticResource AccentButton}"
+                                    Content="{Binding StartLabel}"
+                                    Background="{Binding StartBrush}"
+                                    BorderBrush="{Binding StartBrush}"
+                                    MinWidth="96" Click="Start_Click" />
+                            <Button Style="{StaticResource QuietButton}" Content="Pause"
+                                    MinWidth="80" Margin="6,0" Click="Pause_Click"
+                                    IsEnabled="{Binding CanPause}" />
+                            <Button Style="{StaticResource DangerButton}" Content="Panic"
+                                    MinWidth="80" Click="Panic_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Counters. Mono, because every one of them is a number. -->
+                <primitives:UniformGrid Grid.Row="1" Rows="1" Margin="0,6,0,0">
+                    <Border Style="{StaticResource Panel}" Margin="0,0,3,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="CAUGHT" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding Caught}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Panel}" Margin="3,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="PER HOUR" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding PerHour}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Panel}" Margin="3,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="HOOK RATE" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding HookRate}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Panel}" Margin="3,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="ESCAPED" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding Escaped}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Panel}" Margin="3,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="TIMEOUTS" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding Timeouts}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource Panel}" Margin="3,0,0,0">
+                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
+                            <TextBlock Text="SESSION" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="{Binding Session}" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeCounter}"
+                                       Foreground="{StaticResource Text}" />
+                        </StackPanel>
+                    </Border>
+                </primitives:UniformGrid>
+
+                <!-- Reel readout: the tuning surface. Everything needed to set
+                     bar_lead is here, so tuning never means reading the log. -->
+                <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0,6,0,0">
+                    <StackPanel Margin="12,10">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="REEL" FontFamily="{StaticResource Mono}"
+                                       FontWeight="Bold" FontSize="{StaticResource SizeLabel}"
+                                       Foreground="{StaticResource Muted}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding HoldWord}" Width="52" Margin="12,0,0,0"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeLabel}"
+                                       Foreground="{Binding HoldBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding OnFishLine}" Margin="6,0,0,0"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeLabel}"
+                                       Foreground="{Binding OnFishBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding PreviewNote}" Margin="18,0,0,0"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <ProgressBar Style="{StaticResource Meter}" Margin="0,8,0,4"
+                                     Value="{Binding Meter}" Foreground="{Binding MeterBrush}" />
+
+                        <TextBlock Text="{Binding TelemetryLine}"
+                                   FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeReadout}"
+                                   Foreground="{Binding TelemetryBrush}" />
+
+                        <Image Source="{Binding Preview}" Margin="0,8,0,0"
+                               HorizontalAlignment="Center" Stretch="None"
+                               RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Row="3" Style="{StaticResource Panel}" Margin="0,6,0,0">
+                    <DockPanel Margin="12,10">
+                        <TextBlock DockPanel.Dock="Top" Text="EVENT LOG"
+                                   Style="{StaticResource Heading}" Margin="0,0,0,6" />
+                        <ListBox x:Name="LogList" Style="{StaticResource LogList}"
+                                 ItemsSource="{Binding Log}" MinHeight="120">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Time}" Width="62"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeBody}"
+                                                   Foreground="{StaticResource Faint}" />
+                                        <TextBlock Text="{Binding Mark}" Width="16"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeBody}"
+                                                   Foreground="{Binding Brush}" />
+                                        <TextBlock Text="{Binding Message}" TextWrapping="Wrap"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeBody}"
+                                                   Foreground="{Binding Brush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+            </Grid>
+        </TabItem>
+
+        <!-- ============================================= SETTINGS ========= -->
+        <TabItem Header="Settings">
+            <DockPanel Margin="12,0,12,12">
+                <!-- Nothing here saves as you type, so the form says so. -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,8,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="12,10">
+                        <Button Style="{StaticResource AccentButton}" Content="Save settings"
+                                Background="{Binding SaveBrush}" BorderBrush="{Binding SaveBrush}"
+                                MinWidth="140" Click="Save_Click" />
+                        <Button Style="{StaticResource QuietButton}" Content="Reset session stats"
+                                MinWidth="170" Margin="6,0,0,0" Click="ResetStats_Click" />
+                        <TextBlock Text="{Binding DirtyLine}" Margin="12,0,0,0"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource Sans}"
+                                   FontSize="{StaticResource SizeLabel}"
+                                   Foreground="{StaticResource Amber}" />
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,10,0">
+                    <ItemsControl ItemsSource="{Binding Sections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <!-- Headings and notes sit on the page,
+                                         above the panel, never inside it. -->
+                                    <TextBlock Text="{Binding Title}"
+                                               Style="{StaticResource Heading}" />
+                                    <TextBlock Text="{Binding Note}" Style="{StaticResource Note}"
+                                               Visibility="{Binding HasNote,
+                                                   Converter={StaticResource BoolToVisible}}" />
+                                    <Border Style="{StaticResource Panel}">
+                                        <StackPanel Margin="12,8">
+                                            <ItemsControl ItemsSource="{Binding Fields}"
+                                                          ItemTemplateSelector="{StaticResource FieldSelector}" />
+                                            <!-- A webhook you cannot verify is
+                                                 a webhook you do not trust. -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                                        Visibility="{Binding IsWebhook,
+                                                            Converter={StaticResource BoolToVisible}}">
+                                                <Button Style="{StaticResource QuietButton}"
+                                                        Content="Send test message" MinWidth="170"
+                                                        Click="WebhookTest_Click" />
+                                                <TextBlock Text="{Binding DataContext.WebhookLine,
+                                                               RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           Foreground="{Binding DataContext.WebhookBrush,
+                                                               RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           Margin="12,0,0,0" VerticalAlignment="Center"
+                                                           FontFamily="{StaticResource Mono}"
+                                                           FontSize="{StaticResource SizeLabel}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </TabItem>
+
+        <!-- ========================================== CALIBRATION ========= -->
+        <TabItem Header="Calibration">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12,0,12,12"
+                          Padding="0,0,10,0">
+                <StackPanel>
+                    <TextBlock Text="1 · SCAN REGION" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Start a fishing minigame in GPO, then auto-detect. Give the gauge plenty of room - it is anchored to the bobber and slides as the camera moves, so a tight box clips it mid-fight." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding RegionLine}" Style="{StaticResource Readout}"
+                                       Foreground="{Binding RegionBrush}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Auto-detect"
+                                        MinWidth="130" Click="AutoDetect_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Drag-select"
+                                        MinWidth="130" Margin="6,0" Click="DragRegion_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Test detection"
+                                        MinWidth="130" Click="TestDetection_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="2 · DETECTION COLOURS" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Sampled from the gauge itself. The fish marker is found by shape rather than by colour, so these two are only used by auto-detect." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding ColourLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Sample gauge blue"
+                                        MinWidth="160" Tag="bar_blue" Click="SampleColour_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Sample bar black"
+                                        MinWidth="160" Margin="6,0,0,0" Tag="track_gray"
+                                        Click="SampleColour_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="3 · BAIT AUTOMATION" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Optional. Records where to click to buy or craft bait between catches; leave it alone unless you turn those on in Settings." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Orientation="Horizontal" Margin="12,10">
+                            <Button Style="{StaticResource QuietButton}" Content="Pick shop points"
+                                    MinWidth="160" Click="BaitShop_Click" />
+                            <Button Style="{StaticResource QuietButton}" Content="Pick crafting points"
+                                    MinWidth="180" Margin="6,0,0,0" Click="BaitCraft_Click" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="4 · DEVIL FRUIT STORAGE" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Optional. Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, presses that key, clicks the green Store Fruit prompt, and reads the banner to see whether it took. Stand at the storage point while you calibrate." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding FruitLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Snip fruit icon"
+                                        MinWidth="140" Click="FruitTemplate_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Hotbar row"
+                                        MinWidth="120" Margin="6,0,0,0" Click="FruitHotbar_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Banner strip"
+                                        MinWidth="120" Margin="6,0,0,0" Click="FruitBanner_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Store button"
+                                        MinWidth="130" Margin="6,0,0,0" Click="FruitStore_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource Note}" Margin="0,12,0,24"
+                               Text="Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this." />
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+    </TabControl>
+</Window>

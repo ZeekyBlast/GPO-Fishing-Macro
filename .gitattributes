@@ -1,0 +1,4 @@
+# Windows-only project; keep line endings stable across checkouts.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
