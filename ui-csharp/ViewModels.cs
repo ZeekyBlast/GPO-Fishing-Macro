@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 namespace GpoMacro;
@@ -72,6 +73,17 @@ public sealed class LogEntry
     public string Mark { get; }
     public string Message { get; }
     public Brush Brush { get; }
+}
+
+/// <summary>True when the bound value is null; lets a style trigger on an
+/// empty ImageSource without a bool shadow property.</summary>
+public sealed class IsNullConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is null;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }
 
 // ------------------------------------------------------------------ reading

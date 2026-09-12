@@ -214,6 +214,11 @@ public partial class MainWindow : Window
         var ui = _config.GetProperty("ui");
         _livePreview = ui.GetProperty("live_preview").GetBoolean();
         Topmost = ui.GetProperty("always_on_top").GetBoolean();
+        var controller = _config.GetProperty("controller");
+        _model.LeadLine = string.Format(CultureInfo.InvariantCulture,
+            "Bar lead {0:0.00}s · fish lead {1:0.00}s · tune Bar lead in Settings",
+            controller.GetProperty("bar_lead").GetDouble(),
+            controller.GetProperty("fish_lead").GetDouble());
         _model.RefreshDirty();
         RefreshCalibrationReadouts();
 

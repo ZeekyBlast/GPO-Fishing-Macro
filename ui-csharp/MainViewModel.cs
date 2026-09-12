@@ -128,6 +128,16 @@ public sealed class MainViewModel : Observable
     private string _previewNote = "";
     public string PreviewNote { get => _previewNote; set => Set(ref _previewNote, value); }
 
+    /// <summary>What the error figure means for Bar lead, in prose. Between
+    /// fights it shows the leads themselves, from the config.</summary>
+    private string _tuningNote = "";
+    public string TuningNote { get => _tuningNote; set => Set(ref _tuningNote, value); }
+
+    public string LeadLine { get; set; } = "";
+
+    private string _logCountLine = "0 lines · capped at 300";
+    public string LogCountLine { get => _logCountLine; set => Set(ref _logCountLine, value); }
+
     // --------------------------------------------------------------- settings
 
     private string _dirtyLine = "";
@@ -222,6 +232,7 @@ public sealed class MainViewModel : Observable
         if (_eventStyles.TryGetValue(kind, out var style)) (mark, colour) = style;
         Log.Add(new LogEntry(mark, message, Palette.FromHex(colour, "Text2")));
         while (Log.Count > LogLimit) Log.RemoveAt(0);
+        LogCountLine = $"{Log.Count} line{(Log.Count == 1 ? "" : "s")} · capped at {LogLimit}";
     }
 
     /// <summary>One 10 Hz frame from the engine.</summary>
@@ -301,6 +312,8 @@ public sealed class MainViewModel : Observable
                 ? "waiting for a bite, readings appear here during a fight"
                 : "start the macro to see live readings";
             TelemetryBrush = Palette.Named("Faint");
+            TuningNote = LeadLine;
+            Preview = null;
             return;
         }
 
@@ -328,6 +341,8 @@ public sealed class MainViewModel : Observable
             telemetry.GetProperty("elapsed").GetDouble(),
             telemetry.GetProperty("frames").GetInt32());
         TelemetryBrush = Palette.Named("Text");
+        TuningNote = "error is bar minus fish, both lead-compensated. Steady negative " +
+                     "means the brake is late: raise Bar lead. Steady positive: lower it.";
     }
 
     private void ApplyWebhook(JsonElement tick)

@@ -193,47 +193,76 @@
                 <!-- Reel readout: the tuning surface. Everything needed to set
                      bar_lead is here, so tuning never means reading the log. -->
                 <Border Grid.Row="2" Style="{StaticResource Panel}" Margin="0,6,0,0">
-                    <StackPanel Margin="12,10">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="REEL" FontFamily="{StaticResource Mono}"
-                                       FontWeight="Bold" FontSize="{StaticResource SizeLabel}"
-                                       Foreground="{StaticResource Muted}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding HoldWord}" Width="52" Margin="12,0,0,0"
-                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeLabel}"
-                                       Foreground="{Binding HoldBrush}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding OnFishLine}" Margin="6,0,0,0"
+                    <DockPanel Margin="12,10">
+                        <!-- What the macro sees: the engine's own capture of the
+                             gauge, beside the readings it took from it. Between
+                             fights the well stays, hatched, rather than
+                             collapsing the panel. -->
+                        <Border DockPanel.Dock="Right" Style="{StaticResource CaptureWell}"
+                                Width="108" Height="148" Margin="16,0,0,0">
+                            <Grid>
+                                <TextBlock Text="no fight" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <Image Source="{Binding Preview}" Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel>
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding PreviewNote}"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="REEL" FontFamily="{StaticResource Mono}"
+                                           FontWeight="Bold" FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{StaticResource Muted}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding HoldWord}" Width="52" Margin="12,0,0,0"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding HoldBrush}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding OnFishLine}" Margin="6,0,0,0"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding OnFishBrush}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <ProgressBar Style="{StaticResource Meter}" Margin="0,8,0,4"
+                                         Value="{Binding Meter}" Foreground="{Binding MeterBrush}" />
+
+                            <TextBlock Text="{Binding TelemetryLine}"
                                        FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeReadout}"
+                                       Foreground="{Binding TelemetryBrush}" />
+
+                            <!-- Reading "error -4" and knowing to raise Bar lead
+                                 is knowledge the app should not assume. -->
+                            <TextBlock Text="{Binding TuningNote}" Margin="0,6,0,0"
+                                       TextWrapping="Wrap"
+                                       FontFamily="{StaticResource Sans}"
                                        FontSize="{StaticResource SizeLabel}"
-                                       Foreground="{Binding OnFishBrush}"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding PreviewNote}" Margin="18,0,0,0"
-                                       FontFamily="{StaticResource Mono}"
-                                       FontSize="{StaticResource SizeMeta}"
-                                       Foreground="{StaticResource Faint}"
-                                       VerticalAlignment="Center" />
+                                       Foreground="{StaticResource Faint}" />
                         </StackPanel>
-
-                        <ProgressBar Style="{StaticResource Meter}" Margin="0,8,0,4"
-                                     Value="{Binding Meter}" Foreground="{Binding MeterBrush}" />
-
-                        <TextBlock Text="{Binding TelemetryLine}"
-                                   FontFamily="{StaticResource Mono}"
-                                   FontSize="{StaticResource SizeReadout}"
-                                   Foreground="{Binding TelemetryBrush}" />
-
-                        <Image Source="{Binding Preview}" Margin="0,8,0,0"
-                               HorizontalAlignment="Center" Stretch="None"
-                               RenderOptions.BitmapScalingMode="NearestNeighbor" />
-                    </StackPanel>
+                    </DockPanel>
                 </Border>
 
                 <Border Grid.Row="3" Style="{StaticResource Panel}" Margin="0,6,0,0">
                     <DockPanel Margin="12,10">
-                        <TextBlock DockPanel.Dock="Top" Text="EVENT LOG"
-                                   Style="{StaticResource Heading}" Margin="0,0,0,6" />
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding LogCountLine}"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{StaticResource Mono}"
+                                       FontSize="{StaticResource SizeMeta}"
+                                       Foreground="{StaticResource Faint}" />
+                            <TextBlock Text="EVENT LOG" Style="{StaticResource Heading}" Margin="0" />
+                        </DockPanel>
                         <!-- The log is capped at 300 lines, so virtualizing it buys
                              nothing and its generator is where the
                              inconsistency crash came from. -->
