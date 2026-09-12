@@ -601,8 +601,11 @@ public partial class MainWindow : Window
         if (sender is ListBox list && !_railLogs.Contains(list)) _railLogs.Add(list);
     }
 
+    private TaskCompletionSource<bool>? _prompt;
+
     private void SetupNext_Click(object sender, RoutedEventArgs e)
     {
+        if (_prompt is not null) { _prompt.TrySetResult(true); return; }
         if (_model.SetupStep == 6) _ = FinishSetupAsync(skipped: false);
         else
         {
@@ -611,14 +614,22 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SetupBack_Click(object sender, RoutedEventArgs e) => _model.SetupStep--;
+    private void SetupBack_Click(object sender, RoutedEventArgs e)
+    {
+        if (_prompt is not null) _prompt.TrySetResult(false);
+        else _model.SetupStep--;
+    }
 
-    private void SetupSkip_Click(object sender, RoutedEventArgs e) => _ = FinishSetupAsync(skipped: true);
+    private void SetupSkip_Click(object sender, RoutedEventArgs e)
+    {
+        if (_prompt is not null) _prompt.TrySetResult(false);
+        else _ = FinishSetupAsync(skipped: true);
+    }
 
     private void SetupPip_Click(object sender, RoutedEventArgs e)
     {
-        if ((sender as FrameworkElement)?.DataContext is Reading pip)
-            _model.SetupStep = Array.IndexOf(_model.SetupPips, pip) + 1;
+        if (_prompt is null && (sender as FrameworkElement)?.DataContext is Reading pip)
+            _model.SetupStep = _model.SetupPips.IndexOf(pip) + 1;
     }
 
     private void RerunSetup_Click(object sender, RoutedEventArgs e)
@@ -682,55 +693,68 @@ public partial class MainWindow : Window
     private async Task CraftWizardAsync()
     {
         const string bait = "bait";
-        if (!Step("Step 1 of 5 - the dialogue",
-                "Stand at Blacksmith Sen and press T so his \"are you interested?\" " +
-                "dialogue is up. Leave it open and click OK.")) return;
-        if (!await PickBaitAsync(new[] { "the Yes button" }, new[] { "dialog_yes" },
-                "dialogue")) return;
+        try
+        {
+            if (!await StepAsync(1, "the dialogue",
+                    "Stand at Blacksmith Sen and press T so his \"are you interested?\" " +
+                    "dialogue is up. Leave it open, then pick the Yes button.")) return;
+            if (!await PickBaitAsync(new[] { "the Yes button" }, new[] { "dialog_yes" },
+                    "dialogue")) return;
 
-        if (!Step("Step 2 of 5 - the menu",
-                "Click Yes, then click your bait's row (Rare or Legendary Fish Bait) so a " +
-                "red 0/N counter shows under the + slot. Leave it like that and click OK.\n\n" +
-                "You will pick four points, then drag two boxes.")) return;
-        if (!await PickBaitAsync(
-                new[] { "your bait's row", "the + slot", "anywhere on the green CRAFT button",
-                        "the red X" },
-                new[] { "craft_recipe", "craft_add", "craft_button", "craft_close" },
-                "menu")) return;
-        if (!await RegionAsync(bait, "menu_region",
-                "Drag a box over the whole of Sen's craft menu. It only has to cover most of it.",
-                "craft menu region set")) return;
-        if (!await RegionAsync(bait, "craft_counter_region",
-                "Drag a tight box around the red 0/N counter under the + slot - just the " +
-                "number, not the + itself.", "material counter set")) return;
+            if (!await StepAsync(2, "the menu",
+                    "Click Yes, then click your bait's row (Rare or Legendary Fish Bait) so a " +
+                    "red 0/N counter shows under the + slot. Leave it like that.\n\n" +
+                    "You will pick four points, then drag two boxes.")) return;
+            if (!await PickBaitAsync(
+                    new[] { "your bait's row", "the + slot", "anywhere on the green CRAFT button",
+                            "the red X" },
+                    new[] { "craft_recipe", "craft_add", "craft_button", "craft_close" },
+                    "menu")) return;
+            if (!await RegionAsync(bait, "menu_region",
+                    "Drag a box over the whole of Sen's craft menu. It only has to cover most of it.",
+                    "craft menu region set")) return;
+            if (!await RegionAsync(bait, "craft_counter_region",
+                    "Drag a tight box around the red 0/N counter under the + slot - just the " +
+                    "number, not the + itself.", "material counter set")) return;
 
-        if (!Step("Step 3 of 5 - the fish list",
-                "Click the + slot once so the list of your eligible fish opens beside the " +
-                "menu (you need at least one fish of that tier). Leave it open and click OK."))
-            return;
-        if (!await PickBaitAsync(new[] { "the first fish in the list" }, new[] { "craft_pick" },
-                "fish list")) return;
+            if (!await StepAsync(3, "the fish list",
+                    "Click the + slot once so the list of your eligible fish opens beside the " +
+                    "menu (you need at least one fish of that tier). Leave it open."))
+                return;
+            if (!await PickBaitAsync(new[] { "the first fish in the list" }, new[] { "craft_pick" },
+                    "fish list")) return;
 
-        if (!Step("Step 4 of 5 - closing",
-                "Click + again to close the list, then click the red X. Sen's \"...\" bubble " +
-                "stays at the bottom of the screen - leave it there and click OK.")) return;
-        if (!await PickBaitAsync(new[] { "the ... bubble" }, new[] { "dialog_end" },
-                "bubble")) return;
+            if (!await StepAsync(4, "closing",
+                    "Click + again to close the list, then click the red X. Sen's \"...\" bubble " +
+                    "stays at the bottom of the screen - leave it there.")) return;
+            if (!await PickBaitAsync(new[] { "the ... bubble" }, new[] { "dialog_end" },
+                    "bubble")) return;
 
-        if (!Step("Step 5 of 5 - the bait row",
-                "Click the ... bubble to end the conversation, then hold your fishing rod " +
-                "so the Fishing Baits panel shows. Click OK.")) return;
-        if (!await PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel" },
-                new[] { "bait_select" }, "bait row")) return;
+            if (!await StepAsync(5, "the bait row",
+                    "Click the ... bubble to end the conversation, then hold your fishing rod " +
+                    "so the Fishing Baits panel shows.")) return;
+            if (!await PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel" },
+                    new[] { "bait_select" }, "bait row")) return;
 
-        _model.AddLog("info", "crafting calibrated - turn on Auto-craft in Settings");
+            _model.AddLog("info", "crafting calibrated - turn on Auto-craft in Settings");
+        }
+        finally
+        {
+            _prompt = null;
+            _model.EndPrompt();
+        }
     }
 
-    /// <summary>Tell the user how to set the game up for the next pick. The box
-    /// only blocks this window, so they can go and do it, then come back.</summary>
-    private bool Step(string title, string instructions) =>
-        MessageBox.Show(this, instructions, title, MessageBoxButton.OKCancel,
-            MessageBoxImage.None) == MessageBoxResult.OK;
+    /// <summary>Tell the user how to set the game up for the next pick, in the
+    /// window rather than a MessageBox: the setup panel, one instruction at a
+    /// time, with the rail's log showing what each pick saved. Nothing blocks,
+    /// so they can go and do it, then come back and press Pick.</summary>
+    private Task<bool> StepAsync(int index, string title, string instructions)
+    {
+        _prompt = new TaskCompletionSource<bool>();
+        _model.ShowPrompt("crafting", index, 5, title, instructions);
+        return _prompt.Task;
+    }
 
     private Task<bool> BaitRowAsync() =>
         PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel (rod held)" },

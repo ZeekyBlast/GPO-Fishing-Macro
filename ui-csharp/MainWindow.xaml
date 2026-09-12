@@ -713,7 +713,7 @@
                         Content="{Binding SetupNextLabel}" MinWidth="96"
                         IsEnabled="{Binding CanSetupNext}" Click="SetupNext_Click" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}"
-                        Content="Back" MinWidth="80" Margin="0,0,6,0"
+                        Content="{Binding SetupBackLabel}" MinWidth="80" Margin="0,0,6,0"
                         Foreground="{Binding SetupBackBrush}" Click="SetupBack_Click" />
                 <Rectangle Fill="Transparent" />
             </DockPanel>
@@ -822,6 +822,12 @@
                                    Text="bait upkeep &#183; devil-fruit storage &#183; discord webhook" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,4,0,0"
                                    Text="Calibration and Settings, on the left, when you want them." />
+                    </StackPanel>
+
+                    <!-- 7 a wizard prompt: one instruction, then Pick. -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=7}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="{Binding PromptText}" />
                     </StackPanel>
 
                     <!-- The fault block: the same treatment as a calibration

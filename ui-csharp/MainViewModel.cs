@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 using System.Windows.Media;
 
@@ -263,11 +264,12 @@ public sealed class MainViewModel : Observable
         get => _setupStep;
         set
         {
-            value = Math.Clamp(value, 1, 6);
+            value = Math.Clamp(value, 1, PromptStep);
             if (!Set(ref _setupStep, value)) return;
             PaintPips();
             foreach (var name in new[] { nameof(SetupHeading), nameof(SetupNote), nameof(SetupNextLabel),
-                                         nameof(SetupBackBrush), nameof(CanSetupNext), nameof(CaptureEmptyNote) })
+                                         nameof(SetupBackLabel), nameof(SetupBackBrush), nameof(CanSetupNext),
+                                         nameof(CaptureEmptyNote) })
                 Raise(name);
             RefreshSetupFault();
         }
@@ -282,6 +284,42 @@ public sealed class MainViewModel : Observable
 
     public bool CanSetupNext => _setupStep != 1 || _riskAcknowledged;
 
+    // A wizard prompt borrows this panel: same left-panel-plus-rail shape,
+    // one instruction at a time, Pick or Cancel. Step 7 is the prompt body.
+    public const int PromptStep = 7;
+
+    private string _promptHeading = "", _promptNote = "", _promptText = "";
+    public string PromptText { get => _promptText; private set => Set(ref _promptText, value); }
+    private int _promptIndex, _promptTotal;
+
+    public void ShowPrompt(string wizard, int index, int total, string title, string text)
+    {
+        _promptHeading = $"{wizard.ToUpperInvariant()} \u00b7 STEP {index} OF {total} \u00b7 {title.ToUpperInvariant()}";
+        _promptNote = "Set the game up as described, then press Pick. The overlay covers the screen while you click.";
+        (_promptIndex, _promptTotal) = (index, total);
+        PromptText = text;
+        if (SetupPips.Count != total)
+        {
+            SetupPips.Clear();
+            for (var i = 1; i <= total; i++) SetupPips.Add(new Reading($"step {i}"));
+        }
+        SetupActive = true;
+        SetupStep = PromptStep;
+        PaintPips();
+        Raise(nameof(SetupHeading)); Raise(nameof(SetupNote));
+    }
+
+    public void EndPrompt()
+    {
+        SetupActive = false;
+        if (SetupPips.Count != SetupNames.Length)
+        {
+            SetupPips.Clear();
+            foreach (var name in SetupNames) SetupPips.Add(new Reading(name));
+        }
+        SetupStep = 1;
+    }
+
     private static readonly (string Heading, string Note)[] SetupCopy =
     {
         ("1 \u00b7 BEFORE YOU START", "This is the only thing here you cannot skip past without reading."),
@@ -292,20 +330,24 @@ public sealed class MainViewModel : Observable
         ("6 \u00b7 READY", "Nothing else is required to fish."),
     };
 
-    public string SetupHeading => SetupCopy[_setupStep - 1].Heading;
-    public string SetupNote => SetupCopy[_setupStep - 1].Note;
-    public string SetupNextLabel => _setupStep switch { 1 => "I understand", 6 => "Open dashboard", _ => "Next" };
+    public string SetupHeading => _setupStep == PromptStep ? _promptHeading : SetupCopy[_setupStep - 1].Heading;
+    public string SetupNote => _setupStep == PromptStep ? _promptNote : SetupCopy[_setupStep - 1].Note;
+    public string SetupNextLabel => _setupStep switch
+        { 1 => "I understand", 6 => "Open dashboard", PromptStep => "Pick", _ => "Next" };
+    public string SetupBackLabel => _setupStep == PromptStep ? "Cancel" : "Back";
     public Brush SetupBackBrush => Palette.Named(_setupStep == 1 ? "Faint" : "Text");
 
-    public Reading[] SetupPips { get; } =
-        { new("risk"), new("roblox"), new("region"), new("proof"), new("hotkeys"), new("ready") };
+    private static readonly string[] SetupNames = { "risk", "roblox", "region", "proof", "hotkeys", "ready" };
+    public ObservableCollection<Reading> SetupPips { get; } =
+        new(SetupNames.Select(n => new Reading(n)));
 
     /// <summary>GREEN now, GREEN_DIM done, LINE ahead.</summary>
     private void PaintPips()
     {
-        for (var i = 0; i < SetupPips.Length; i++)
+        var now = _setupStep == PromptStep ? _promptIndex : _setupStep;
+        for (var i = 0; i < SetupPips.Count; i++)
             SetupPips[i].Brush = Palette.Named(
-                i + 1 == _setupStep ? "Green" : i + 1 < _setupStep ? "GreenDim" : "Line");
+                i + 1 == now ? "Green" : i + 1 < now ? "GreenDim" : "Line");
     }
 
     /// <summary>What the empty capture well says. During setup it teaches the
