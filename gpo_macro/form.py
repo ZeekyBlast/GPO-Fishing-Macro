@@ -74,7 +74,9 @@ SECTION_NOTES: dict[str, str] = {
                   "it if it stalls short. Watch the on-the-fish percentage on the "
                   "dashboard while you change it.",
     "Fishing": "Timings around the cast. Jitter randomises every delay by this fraction.",
-    "Bait": "Craft or buy, not both: switching one on switches the other off. Crafting "
+    "Bait": "Work in progress: auto-craft and auto-buy run but are not yet proven over a "
+            "long session - watch the first few passes. "
+            "Craft or buy, not both: switching one on switches the other off. Crafting "
             "is the only source of Rare and Legendary bait (two rare fish or one legendary "
             "fish each) and it crafts until the fish run out. Both need their points from "
             "the Calibration tab. Walking is only for a fishing spot outside Sen's prompt "

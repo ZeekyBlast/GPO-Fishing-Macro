@@ -414,7 +414,8 @@ public sealed class MainViewModel : Observable
         new("Sample gauge blue", "blue"), new("Sample bar black", "black"));
 
     public CalibrationSection Bait { get; } = new("bait", "3 \u00b7 BAIT UPKEEP",
-        "Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, " +
+        "Work in progress: auto-craft and auto-buy run but are not yet proven over a long " +
+        "session. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, " +
         "the menu, the fish list, the bubble he leaves behind, then your bait's row on the " +
         "rod. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. " +
         "Snip the T badge only if the macro has to walk to Sen.", true,

@@ -23,10 +23,10 @@ instead of 104**: no PyTorch, no OCR, no audio SDK stack.
   (auto-pause), reel-timeout failsafe, panic key instantly releases the mouse
 - **Live dashboard**: fish count, fish/hour, session uptime, event log,
   optional live detection preview
-- **Bait upkeep**: crafts Rare or Legendary bait at Blacksmith Sen until the
-  fish run out, or buys common bait at the barrel, then puts the bait back on
-  the rod. Reads the menu's colours to know what happened; optionally walks
-  to Sen and back
+- **Bait upkeep** (work in progress, not yet reliable): crafts Rare or
+  Legendary bait at Blacksmith Sen until the fish run out, or buys common bait
+  at the barrel, then puts the bait back on the rod. Reads the menu's colours
+  to know what happened; optionally walks to Sen and back
 - **Devil-fruit auto-store**: finds which hotbar slot holds a fruit, stores
   it, and reads the result banner. No OCR
 - **Discord webhook** notifications: fruit stored (with a screenshot of the
@@ -185,6 +185,10 @@ line up with them), the **banner strip**, and a point anywhere on the **Store
 button**, which anchors the search for it.
 
 ### Bait upkeep
+
+> **Work in progress.** Auto-craft and auto-buy are calibratable and run, but
+> they have not been proven across a long session yet. Expect misses; watch the
+> first few passes, and leave both off if you are not around to step in.
 
 Rare and Legendary bait are craft-only: two rare fish or one legendary fish
 each, at Blacksmith Sen on the Shells Town dock. A Devil Fruit Rod session
