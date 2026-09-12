@@ -68,7 +68,7 @@ FORM: list[tuple[str, str, str, str, str]] = [
 SECTION_NOTES: dict[str, str] = {
     "Hotkeys": "Work even while Roblox has focus. Panic releases the mouse and stops "
                "everything immediately.",
-    "Detection": "Only touch these if the Calibration tab's Test Detection cannot find "
+    "Detection": "Only touch these if Calibration's Test detection cannot find "
                  "the gauge.",
     "Controller": "Bar lead is the brake. Raise it if the bar sails past the fish, lower "
                   "it if it stalls short. Watch the on-the-fish percentage on the "
@@ -93,7 +93,28 @@ SECTION_NOTES: dict[str, str] = {
 }
 
 
+# What a field does, in a few words, shown beside it. Empty is fine and
+# common; only knobs whose consequence is not obvious from the label get one.
+EFFECTS: dict[tuple[str, str], str] = {
+    ("hotkeys", "start_stop"): "start and stop",
+    ("hotkeys", "panic"): "releases the held mouse button",
+    ("detection", "color_tolerance"): "per channel",
+    ("controller", "bar_lead"): "the brake",
+    ("controller", "fish_lead"): "0 = aim at where the fish is now",
+    ("fishing", "recast_timeout"): "then it casts again",
+    ("fishing", "action_jitter"): "randomises every delay by this fraction",
+    ("bait", "every_n_catches"): "one upkeep pass",
+    ("webhook", "milestone_every"): "one message per N fish",
+    ("ui", "preview_scale"): "of the capture, in the reel panel",
+}
+
+# Sections folded away by default: knobs that only matter once something is
+# already broken should not be the first thing a new user scrolls past.
+ADVANCED: frozenset[str] = frozenset({"Detection"})
+
+
 def schema() -> list[dict]:
     """The form as plain data, for the C# shell."""
-    return [{"section": section, "obj": obj, "attr": attr, "label": label, "kind": kind}
+    return [{"section": section, "obj": obj, "attr": attr, "label": label, "kind": kind,
+             "effect": EFFECTS.get((obj, attr), ""), "advanced": section in ADVANCED}
             for section, obj, attr, label, kind in FORM]

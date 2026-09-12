@@ -100,7 +100,8 @@ class Engine:
         # keeping its own table: what a colour *means* stays in theme.py.
         self.send(t="hello", app=APP_NAME, version=__version__,
                   schema=form.schema(), notes=form.SECTION_NOTES,
-                  config=self.cfg.to_dict(), settings_path=str(self.store.path),
+                  config=self.cfg.to_dict(), defaults=AppConfig().to_dict(),
+                  settings_path=str(self.store.path),
                   state_colors=theme.STATE_COLORS,
                   event_styles={kind: {"mark": mark, "colour": colour}
                                 for kind, (mark, colour) in theme.EVENT_STYLES.items()})

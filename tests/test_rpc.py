@@ -56,7 +56,8 @@ def main() -> int:
     try:
         hello = read_until(proc, lambda f: f.get("t") == "hello")
         assert hello["schema"], "hello carries no settings schema"
-        assert {"section", "obj", "attr", "label", "kind"} <= set(hello["schema"][0])
+        assert {"section", "obj", "attr", "label", "kind", "effect", "advanced"}             <= set(hello["schema"][0])
+        assert hello["defaults"]["controller"]["bar_lead"] is not None, "defaults missing"
         assert hello["config"]["hotkeys"]["start_stop"], "config missing in hello"
         kinds = {f["kind"] for f in hello["schema"]}
         assert kinds <= {"str", "int", "float", "bool", "secret"}, f"unknown kinds: {kinds}"

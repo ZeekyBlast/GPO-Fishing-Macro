@@ -143,6 +143,29 @@ public sealed class MainViewModel : Observable
     private string _dirtyLine = "";
     public string DirtyLine { get => _dirtyLine; set => Set(ref _dirtyLine, value); }
 
+    private string _filterText = "";
+    public string FilterText
+    {
+        get => _filterText;
+        set { if (Set(ref _filterText, value)) RefreshFilter(); }
+    }
+
+    private bool _showAdvanced;
+    public bool ShowAdvanced
+    {
+        get => _showAdvanced;
+        set { if (Set(ref _showAdvanced, value)) RefreshFilter(); }
+    }
+
+    public void RefreshFilter()
+    {
+        foreach (var section in Sections) section.Filter(FilterText.Trim(), ShowAdvanced);
+    }
+
+    /// <summary>The webhook URL row carries the delivery status as its effect,
+    /// so a webhook you cannot verify is never silently trusted.</summary>
+    public SettingField? WebhookField { get; set; }
+
     private Brush _saveBrush = Brushes.Green;
     public Brush SaveBrush { get => _saveBrush; set => Set(ref _saveBrush, value); }
 
@@ -352,6 +375,7 @@ public sealed class MainViewModel : Observable
         {
             WebhookLine = hook.GetProperty("last_result").GetString() ?? "";
             WebhookBrush = Palette.Named("Faint");
+            ShowWebhookEffect();
             return;
         }
         var sent = hook.GetProperty("sent").GetInt32();
@@ -365,7 +389,15 @@ public sealed class MainViewModel : Observable
         var suppressed = hook.GetProperty("suppressed").GetInt32();
         if (suppressed > 0) parts.Add($"{suppressed} throttled");
         WebhookLine = string.Join("   ", parts);
-        WebhookBrush = Palette.Named(sent > 0 && failed == 0 ? "Green" : failed > 0 ? "Amber" : "Faint");
+        WebhookBrush = Palette.Named(sent > 0 && failed == 0 ? "Green" : failed > 0 ? "Red" : "Faint");
+        ShowWebhookEffect();
+    }
+
+    private void ShowWebhookEffect()
+    {
+        if (WebhookField is null) return;
+        WebhookField.Effect = WebhookLine;
+        WebhookField.EffectBrush = WebhookBrush;
     }
 
     public void RefreshDirty()

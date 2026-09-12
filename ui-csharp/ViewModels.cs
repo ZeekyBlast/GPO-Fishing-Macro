@@ -117,18 +117,30 @@ public sealed class SettingField : Observable
     private bool _flag;
     private string _saved = "";
 
-    public SettingField(string obj, string attr, string label, string kind)
+    public SettingField(string obj, string attr, string label, string kind, string effect)
     {
         Object = obj;
         Attr = attr;
         Label = label;
         Kind = kind;
+        _effect = effect;
     }
 
     public string Object { get; }
     public string Attr { get; }
     public string Label { get; }
     public string Kind { get; }
+
+    /// <summary>What the knob does, beside it. Usually static from the schema;
+    /// the webhook URL's is live, carrying the last delivery's result.</summary>
+    private string _effect;
+    public string Effect { get => _effect; set => Set(ref _effect, value); }
+
+    private Brush _effectBrush = Palette.Named("Faint");
+    public Brush EffectBrush { get => _effectBrush; set => Set(ref _effectBrush, value); }
+
+    private bool _isVisible = true;
+    public bool IsVisible { get => _isVisible; set => Set(ref _isVisible, value); }
 
     public bool IsBool => Kind == "bool";
     public bool IsSecret => Kind == "secret";
@@ -155,23 +167,24 @@ public sealed class SettingField : Observable
     /// <summary>Adopt a value from the engine as the new saved baseline.</summary>
     public void Load(System.Text.Json.JsonElement value)
     {
+        Edit(value);
+        _saved = Current;
+        Raise(nameof(IsDirty));
+    }
+
+    /// <summary>Put a value in the field as if the user had typed it: the
+    /// baseline stays, so the row reads dirty until saved.</summary>
+    public void Edit(System.Text.Json.JsonElement value)
+    {
         if (IsBool)
-        {
-            _flag = value.ValueKind == System.Text.Json.JsonValueKind.True;
-            Raise(nameof(Flag));
-        }
+            Flag = value.ValueKind == System.Text.Json.JsonValueKind.True;
         else
-        {
-            _text = value.ValueKind switch
+            Text = value.ValueKind switch
             {
                 System.Text.Json.JsonValueKind.String => value.GetString() ?? "",
                 System.Text.Json.JsonValueKind.Null => "",
                 _ => value.ToString(),
             };
-            Raise(nameof(Text));
-        }
-        _saved = Current;
-        Raise(nameof(IsDirty));
     }
 
     /// <summary>The typed value, ready for set_config. Throws on a value the
@@ -186,13 +199,14 @@ public sealed class SettingField : Observable
     };
 }
 
-public sealed class SettingsSection
+public sealed class SettingsSection : Observable
 {
-    public SettingsSection(string name, string note)
+    public SettingsSection(string name, string note, bool isAdvanced)
     {
         Name = name;
         Note = note;
         HasNote = !string.IsNullOrWhiteSpace(note);
+        IsAdvanced = isAdvanced;
     }
 
     public string Name { get; }
@@ -203,7 +217,29 @@ public sealed class SettingsSection
     public string Note { get; }
     public bool HasNote { get; }
     public bool IsWebhook => Name == "Webhook";
+
+    /// <summary>Folded behind "Show advanced": knobs that only matter once
+    /// something is already broken.</summary>
+    public bool IsAdvanced { get; }
+
+    private bool _isVisible = true;
+    public bool IsVisible { get => _isVisible; set => Set(ref _isVisible, value); }
+
     public ObservableCollection<SettingField> Fields { get; } = new();
+
+    /// <summary>Hide fields whose label misses the filter, and the section
+    /// when advanced is folded or no field survived.</summary>
+    public void Filter(string text, bool showAdvanced)
+    {
+        var any = false;
+        foreach (var field in Fields)
+        {
+            field.IsVisible = text.Length == 0
+                || field.Label.Contains(text, StringComparison.OrdinalIgnoreCase);
+            any |= field.IsVisible;
+        }
+        IsVisible = any && (showAdvanced || !IsAdvanced);
+    }
 }
 
 /// <summary>A checkbox spans the row; everything else is label plus field.</summary>

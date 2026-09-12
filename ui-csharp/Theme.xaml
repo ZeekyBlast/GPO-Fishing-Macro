@@ -134,6 +134,51 @@
         <Setter Property="Foreground" Value="{StaticResource Text2}" />
     </Style>
 
+    <!-- What a knob does, beside it. Red when the thing it reports failed. -->
+    <Style x:Key="Effect" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeLabel}" />
+        <Setter Property="Foreground" Value="{StaticResource Faint}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="10,0,0,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- A small hairline tag beside a heading: "advanced", "optional". -->
+    <Style x:Key="Badge" TargetType="Border">
+        <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="5,1" />
+        <Setter Property="Margin" Value="9,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- A text action: a verb with no chrome, for things that are cheap and
+         reversible. Brightens on hover, nothing else. -->
+    <Style x:Key="TextAction" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Faint}" />
+        <Setter Property="FontFamily" Value="{StaticResource Sans}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeLabel}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Text2}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Buttons are quiet by default: surface fill, hairline border, plain
          text. Only Start is filled with the accent. -->
     <Style x:Key="QuietButton" TargetType="Button">
@@ -370,7 +415,11 @@
 
                         <Border Grid.Column="1" BorderBrush="{StaticResource Line}"
                                 BorderThickness="1,0,0,0">
-                            <ContentPresenter ContentSource="SelectedContent" />
+                            <!-- Named so the automation peer can reach the
+                                 selected screen: screen readers and UI tests
+                                 see nothing below the tab strip otherwise. -->
+                            <ContentPresenter x:Name="PART_SelectedContentHost"
+                                              ContentSource="SelectedContent" />
                         </Border>
                     </Grid>
                 </ControlTemplate>

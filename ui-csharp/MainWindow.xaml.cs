@@ -26,6 +26,7 @@ public partial class MainWindow : Window
     private UpdateInfo? _pendingUpdate;
 
     private JsonElement _config;
+    private JsonElement _defaults;
     private bool _haveConfig;
     private string _toggleKey = "f6";
     private bool _livePreview;
@@ -182,7 +183,8 @@ public partial class MainWindow : Window
             {
                 var note = notes.TryGetProperty(name, out var noteElement)
                     ? noteElement.GetString() ?? "" : "";
-                section = new SettingsSection(name, note);
+                section = new SettingsSection(name, note,
+                    entry.TryGetProperty("advanced", out var adv) && adv.GetBoolean());
                 byName[name] = section;
                 _model.Sections.Add(section);
             }
@@ -190,13 +192,29 @@ public partial class MainWindow : Window
                 entry.GetProperty("obj").GetString() ?? "",
                 entry.GetProperty("attr").GetString() ?? "",
                 entry.GetProperty("label").GetString() ?? "",
-                entry.GetProperty("kind").GetString() ?? "str");
+                entry.GetProperty("kind").GetString() ?? "str",
+                entry.TryGetProperty("effect", out var effect) ? effect.GetString() ?? "" : "");
             field.PropertyChanged += (_, args) =>
             {
                 if (args.PropertyName == nameof(SettingField.IsDirty)) _model.RefreshDirty();
             };
             section.Fields.Add(field);
+            if (field.Object == "webhook" && field.Attr == "url") _model.WebhookField = field;
         }
+        _defaults = hello.TryGetProperty("defaults", out var defaults) ? defaults.Clone() : default;
+        _model.RefreshFilter();
+    }
+
+    /// <summary>Put one section back to the engine's defaults. Nothing is
+    /// written: the rows go dirty and Save is still the only way out.</summary>
+    private void ResetSection_Click(object sender, RoutedEventArgs e)
+    {
+        if (_defaults.ValueKind != JsonValueKind.Object) return;
+        if ((sender as FrameworkElement)?.DataContext is not SettingsSection section) return;
+        foreach (var field in section.Fields)
+            if (_defaults.TryGetProperty(field.Object, out var group)
+                && group.TryGetProperty(field.Attr, out var value))
+                field.Edit(value);
     }
 
     private void AdoptConfig(JsonElement config)
