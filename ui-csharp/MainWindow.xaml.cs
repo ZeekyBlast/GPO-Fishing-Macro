@@ -123,7 +123,7 @@ public partial class MainWindow : Window
                 BuildSettings(frame);
                 AdoptConfig(frame.GetProperty("config"));
                 _model.AddLog("info",
-                    $"Welcome - calibrate once (Calibration tab), then Start. " +
+                    $"Welcome - calibrate once (Calibration, on the left), then Start. " +
                     $"Hotkeys: {_toggleKey} toggle, {HotkeyValue("panic")} panic.");
                 break;
 
@@ -739,6 +739,8 @@ public partial class MainWindow : Window
             ? $"({rx1},{ry1}) - ({rx2},{ry2})   {rx2 - rx1} x {ry2 - ry1}"
             : "not set - run auto-detect with the gauge on screen";
         _model.RegionBrush = Palette.Named(valid ? "Text2" : "Amber");
+        _model.RegionReading.Show(valid ? $"{rx2 - rx1} x {ry2 - ry1} · set" : "not set",
+                                  valid ? "Green" : "Amber");
 
         var detection = _config.GetProperty("detection");
         _model.ColourLines =
@@ -771,6 +773,18 @@ public partial class MainWindow : Window
             Row("barrel", PointsSet(bait, "shop_quantity", "shop_confirm")),
             Row("T badge", File.Exists(badgePath) ? badge : ""),
         });
+
+        var baitOn = bait.GetProperty("auto_craft").GetBoolean() || bait.GetProperty("auto_buy").GetBoolean();
+        var fruitOn = fruit.GetProperty("auto_store").GetBoolean();
+        _model.OptionalReading.Show(
+            (baitOn, fruitOn) switch
+            {
+                (true, true) => "bait, fruit on",
+                (true, false) => "bait on · fruit off",
+                (false, true) => "bait off · fruit on",
+                _ => "bait, fruit off",
+            },
+            baitOn || fruitOn ? "Text2" : "Faint");
     }
 
     /// <summary>"3/5 points" for a click sequence, or "" if none are set.</summary>

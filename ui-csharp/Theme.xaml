@@ -228,9 +228,12 @@
         </Setter>
     </Style>
 
-    <!-- The tab bar is chrome, so it stays grey. Green never marks mere
-         selection - only "on the fish". -->
-    <Style x:Key="TabHeader" TargetType="TabItem">
+    <!-- The sidebar. Each screen is a TabItem; the strip is a column, with
+         the app name above and the three readiness readings below. Grey
+         selection, deliberately: green never marks mere selection. The dot
+         is the item's Tag: green while a session is live, amber when that
+         screen wants attention, LINE_STRONG otherwise. -->
+    <Style x:Key="NavItem" TargetType="TabItem">
         <Setter Property="Foreground" Value="{StaticResource Muted}" />
         <Setter Property="FontFamily" Value="{StaticResource Sans}" />
         <Setter Property="FontSize" Value="{StaticResource SizeBody}" />
@@ -238,13 +241,20 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">
-                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="4"
-                            Padding="18,7" Margin="0,0,4,0">
-                        <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" />
+                    <Border x:Name="Chrome" Background="Transparent"
+                            BorderBrush="Transparent" BorderThickness="2,0,0,0"
+                            Padding="12,8,14,8">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Margin="0,0,9,0"
+                                     VerticalAlignment="Center"
+                                     Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" />
+                            <ContentPresenter ContentSource="Header" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface2}" />
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Text}" />
                             <Setter Property="Foreground" Value="{StaticResource Text}" />
                         </Trigger>
                         <MultiTrigger>
@@ -260,19 +270,69 @@
         </Setter>
     </Style>
 
-    <!-- The tab strip is the only chrome: no border box, no panel behind it. -->
-    <Style x:Key="FlatTabControl" TargetType="TabControl">
+    <!-- 168px sidebar on BG, hairline, then the selected screen. The footer
+         binds to the window's view model: three readings that decide whether
+         the macro can work at all. -->
+    <Style x:Key="SidebarTabControl" TargetType="TabControl">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabControl">
-                    <DockPanel>
-                        <TabPanel DockPanel.Dock="Top" IsItemsHost="True" Margin="12,8,12,6"
-                                  Background="Transparent" HorizontalAlignment="Left" />
-                        <ContentPresenter ContentSource="SelectedContent" />
-                    </DockPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="168" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <DockPanel Background="{StaticResource Bg}">
+                            <StackPanel DockPanel.Dock="Top" Margin="14,14,14,16">
+                                <TextBlock Text="GPO FISHING"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeBody}"
+                                           Foreground="{StaticResource Text}" />
+                                <TextBlock Text="{Binding VersionLine}" Margin="0,2,0,0"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                            </StackPanel>
+
+                            <Border DockPanel.Dock="Bottom" Margin="0,0,0,12"
+                                    BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+                                <StackPanel Margin="14,12,14,0">
+                                    <TextBlock Text="WHAT IT SEES" Margin="0,0,0,9"
+                                               FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                               FontSize="{StaticResource SizeMeta}"
+                                               Foreground="{StaticResource Muted}" />
+                                    <ItemsControl ItemsSource="{Binding Readiness}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,0,0,9">
+                                                    <TextBlock Text="{Binding Label}"
+                                                               FontFamily="{StaticResource Mono}"
+                                                               FontSize="{StaticResource SizeMeta}"
+                                                               Foreground="{StaticResource Faint}" />
+                                                    <TextBlock Text="{Binding Value}" Margin="0,1,0,0"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               FontFamily="{StaticResource Mono}"
+                                                               FontSize="{StaticResource SizeLabel}"
+                                                               Foreground="{Binding Brush}" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel IsItemsHost="True" />
+                        </DockPanel>
+
+                        <Border Grid.Column="1" BorderBrush="{StaticResource Line}"
+                                BorderThickness="1,0,0,0">
+                            <ContentPresenter ContentSource="SelectedContent" />
+                        </Border>
+                    </Grid>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

@@ -24,6 +24,32 @@ public sealed class MainViewModel : Observable
     public ObservableCollection<LogEntry> Log { get; } = new();
     public ObservableCollection<SettingsSection> Sections { get; } = new();
 
+    // ---------------------------------------------------------------- sidebar
+
+    /// <summary>Which screen is showing. Tab order: Dashboard, Calibration,
+    /// Settings. A fault's recovery button will route here.</summary>
+    public const int DashboardScreen = 0, CalibrationScreen = 1, SettingsScreen = 2;
+
+    private int _selectedScreen = DashboardScreen;
+    public int SelectedScreen { get => _selectedScreen; set => Set(ref _selectedScreen, value); }
+
+    // The dot beside each nav item: green while a session is live, amber when
+    // that screen wants attention, LINE_STRONG otherwise.
+    private Brush _dashboardDot = Brushes.Gray;
+    public Brush DashboardDot { get => _dashboardDot; set => Set(ref _dashboardDot, value); }
+
+    private Brush _calibrationDot = Brushes.Gray;
+    public Brush CalibrationDot { get => _calibrationDot; set => Set(ref _calibrationDot, value); }
+
+    private Brush _settingsDot = Brushes.Gray;
+    public Brush SettingsDot { get => _settingsDot; set => Set(ref _settingsDot, value); }
+
+    // The footer: the three readings that decide whether the macro can work.
+    public Reading RobloxReading { get; } = new("roblox");
+    public Reading RegionReading { get; } = new("region");
+    public Reading OptionalReading { get; } = new("optional");
+    public Reading[] Readiness => new[] { RobloxReading, RegionReading, OptionalReading };
+
     // ---------------------------------------------------------- status strip
 
     private string _stateWord = "IDLE";
@@ -231,6 +257,13 @@ public sealed class MainViewModel : Observable
         StartBrush = Palette.Named(running ? "Amber" : "Green");
         CanPause = running;
 
+        DashboardDot = Palette.Named(running ? "Green" : "LineStrong");
+        CalibrationDot = Palette.Named(regionValid ? "LineStrong" : "Amber");
+        RobloxReading.Show(hasWindow
+            ? $"{window.GetProperty("width").GetInt32()}x{window.GetProperty("height").GetInt32()}" +
+              $" ({window.GetProperty("left").GetInt32()},{window.GetProperty("top").GetInt32()})"
+            : "not found", hasWindow ? "Green" : "Amber");
+
         var stats = tick.GetProperty("stats");
         var caught = stats.GetProperty("fish_total").GetInt32();
         var escaped = stats.GetProperty("fails").GetInt32();
@@ -328,6 +361,7 @@ public sealed class MainViewModel : Observable
                 if (field.IsDirty) count++;
         DirtyLine = count == 0 ? "" : $"{count} unsaved change{(count == 1 ? "" : "s")}";
         SaveBrush = Palette.Named(count == 0 ? "Green" : "Amber");
+        SettingsDot = Palette.Named(count == 0 ? "LineStrong" : "Amber");
     }
 
     public static string FormatUptime(double seconds)

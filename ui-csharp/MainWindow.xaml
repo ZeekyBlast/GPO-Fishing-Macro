@@ -52,12 +52,13 @@
                                      SecretTemplate="{StaticResource SecretField}" />
     </Window.Resources>
 
-    <TabControl Style="{StaticResource FlatTabControl}"
-                ItemContainerStyle="{StaticResource TabHeader}">
+    <TabControl Style="{StaticResource SidebarTabControl}"
+                ItemContainerStyle="{StaticResource NavItem}"
+                SelectedIndex="{Binding SelectedScreen, Mode=TwoWay}">
 
         <!-- ============================================ DASHBOARD ========= -->
-        <TabItem Header="Dashboard">
-            <Grid Margin="12,0,12,12">
+        <TabItem Header="Dashboard" Tag="{Binding DashboardDot}">
+            <Grid Margin="12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -263,9 +264,98 @@
             </Grid>
         </TabItem>
 
+        <!-- ========================================== CALIBRATION ========= -->
+        <TabItem Header="Calibration" Tag="{Binding CalibrationDot}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12"
+                          Padding="0,0,10,0">
+                <StackPanel>
+                    <TextBlock Text="1 · SCAN REGION" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Start a fishing minigame in GPO, then auto-detect. Give the gauge plenty of room - it is anchored to the bobber and slides as the camera moves, so a tight box clips it mid-fight." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding RegionLine}" Style="{StaticResource Readout}"
+                                       Foreground="{Binding RegionBrush}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Auto-detect"
+                                        MinWidth="130" Click="AutoDetect_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Drag-select"
+                                        MinWidth="130" Margin="6,0" Click="DragRegion_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Test detection"
+                                        MinWidth="130" Click="TestDetection_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="2 · DETECTION COLOURS" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Sampled from the gauge itself. The fish marker is found by shape rather than by colour, so these two are only used by auto-detect." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding ColourLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Sample gauge blue"
+                                        MinWidth="160" Tag="bar_blue" Click="SampleColour_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Sample bar black"
+                                        MinWidth="160" Margin="6,0,0,0" Tag="track_gray"
+                                        Click="SampleColour_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="3 · BAIT UPKEEP" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Optional. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, the menu, the fish list, the bubble he leaves behind, then your bait's row on the rod. The small buttons redo one piece. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. Snip the T badge only if the macro has to walk to Sen." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding BaitLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Calibrate crafting"
+                                        MinWidth="150" Click="BaitCraft_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Menu region"
+                                        MinWidth="110" Margin="6,0,0,0" Click="BaitMenu_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="N/M counter"
+                                        MinWidth="110" Margin="6,0,0,0" Click="BaitCounter_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Bait row"
+                                        MinWidth="100" Margin="6,0,0,0" Click="BaitRow_Click" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Pick barrel points"
+                                        MinWidth="140" Click="BaitShop_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Snip Sen's T badge"
+                                        MinWidth="150" Margin="6,0,0,0" Click="BaitPrompt_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="4 · DEVIL FRUIT STORAGE" Style="{StaticResource Heading}" />
+                    <TextBlock Style="{StaticResource Note}"
+                               Text="Optional. Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, presses that key, clicks the green Store Fruit prompt, and reads the banner to see whether it took. Stand at the storage point while you calibrate." />
+                    <Border Style="{StaticResource Panel}">
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding FruitLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Snip fruit icon"
+                                        MinWidth="140" Click="FruitTemplate_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Hotbar row"
+                                        MinWidth="120" Margin="6,0,0,0" Click="FruitHotbar_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Banner strip"
+                                        MinWidth="120" Margin="6,0,0,0" Click="FruitBanner_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Store button"
+                                        MinWidth="130" Margin="6,0,0,0" Click="FruitStore_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource Note}" Margin="0,12,0,24"
+                               Text="Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this." />
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
         <!-- ============================================= SETTINGS ========= -->
-        <TabItem Header="Settings">
-            <DockPanel Margin="12,0,12,12">
+        <TabItem Header="Settings" Tag="{Binding SettingsDot}">
+            <DockPanel Margin="12">
                 <!-- Nothing here saves as you type, so the form says so. -->
                 <Border DockPanel.Dock="Bottom" Style="{StaticResource Panel}" Margin="0,8,0,0">
                     <StackPanel Orientation="Horizontal" Margin="12,10">
@@ -363,95 +453,6 @@
                   </StackPanel>
                 </ScrollViewer>
             </DockPanel>
-        </TabItem>
-
-        <!-- ========================================== CALIBRATION ========= -->
-        <TabItem Header="Calibration">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12,0,12,12"
-                          Padding="0,0,10,0">
-                <StackPanel>
-                    <TextBlock Text="1 · SCAN REGION" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Start a fishing minigame in GPO, then auto-detect. Give the gauge plenty of room - it is anchored to the bobber and slides as the camera moves, so a tight box clips it mid-fight." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding RegionLine}" Style="{StaticResource Readout}"
-                                       Foreground="{Binding RegionBrush}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Auto-detect"
-                                        MinWidth="130" Click="AutoDetect_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Drag-select"
-                                        MinWidth="130" Margin="6,0" Click="DragRegion_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Test detection"
-                                        MinWidth="130" Click="TestDetection_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Text="2 · DETECTION COLOURS" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Sampled from the gauge itself. The fish marker is found by shape rather than by colour, so these two are only used by auto-detect." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding ColourLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Sample gauge blue"
-                                        MinWidth="160" Tag="bar_blue" Click="SampleColour_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Sample bar black"
-                                        MinWidth="160" Margin="6,0,0,0" Tag="track_gray"
-                                        Click="SampleColour_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Text="3 · BAIT UPKEEP" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Optional. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, the menu, the fish list, the bubble he leaves behind, then your bait's row on the rod. The small buttons redo one piece. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. Snip the T badge only if the macro has to walk to Sen." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding BaitLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Calibrate crafting"
-                                        MinWidth="150" Click="BaitCraft_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Menu region"
-                                        MinWidth="110" Margin="6,0,0,0" Click="BaitMenu_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="N/M counter"
-                                        MinWidth="110" Margin="6,0,0,0" Click="BaitCounter_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Bait row"
-                                        MinWidth="100" Margin="6,0,0,0" Click="BaitRow_Click" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Pick barrel points"
-                                        MinWidth="140" Click="BaitShop_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Snip Sen's T badge"
-                                        MinWidth="150" Margin="6,0,0,0" Click="BaitPrompt_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Text="4 · DEVIL FRUIT STORAGE" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Optional. Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, presses that key, clicks the green Store Fruit prompt, and reads the banner to see whether it took. Stand at the storage point while you calibrate." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding FruitLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Snip fruit icon"
-                                        MinWidth="140" Click="FruitTemplate_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Hotbar row"
-                                        MinWidth="120" Margin="6,0,0,0" Click="FruitHotbar_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Banner strip"
-                                        MinWidth="120" Margin="6,0,0,0" Click="FruitBanner_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Store button"
-                                        MinWidth="130" Margin="6,0,0,0" Click="FruitStore_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource Note}" Margin="0,12,0,24"
-                               Text="Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this." />
-                </StackPanel>
-            </ScrollViewer>
         </TabItem>
     </TabControl>
 </Window>

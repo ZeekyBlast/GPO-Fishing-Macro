@@ -74,6 +74,28 @@ public sealed class LogEntry
     public Brush Brush { get; }
 }
 
+// ------------------------------------------------------------------ reading
+
+/// <summary>One line of the sidebar footer: a fixed label over a value the
+/// tick or the config keeps current. The brush says whether it is good.</summary>
+public sealed class Reading : Observable
+{
+    private string _value = "-";
+    private Brush _brush = Brushes.Gray;
+
+    public Reading(string label) => Label = label;
+
+    public string Label { get; }
+    public string Value { get => _value; set => Set(ref _value, value); }
+    public Brush Brush { get => _brush; set => Set(ref _brush, value); }
+
+    public void Show(string value, string brushKey)
+    {
+        Value = value;
+        Brush = Palette.Named(brushKey);
+    }
+}
+
 // -------------------------------------------------------------------- setting
 
 /// <summary>One row of the settings form, described by the engine's schema.</summary>

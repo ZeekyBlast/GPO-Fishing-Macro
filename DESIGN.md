@@ -66,7 +66,7 @@ Near-black surfaces, one committed accent, two fault colours.
 **Green is the only accent, and it means one thing: the hook is on the fish.**
 That is the entire job of this program, so green fills the on-target meter,
 marks HOLD, marks a catch, and marks Start. It is never decoration and never
-marks mere selection; the tab bar stays grey for exactly that reason.
+marks mere selection; the sidebar stays grey for exactly that reason.
 
 Amber is for states that want attention but are not yet wrong: waiting,
 paused, recast timeout, an uncalibrated region. Red is only for faults.
