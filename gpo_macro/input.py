@@ -100,7 +100,9 @@ class InputController:
                          int((sy - oy) + (py - (sy - oy)) * step / 6))
             time.sleep(0.015)
         self._jittered_delay(0.4)
-        for _ in range(2 if double else 1):
+        for n in range(2 if double else 1):
+            if n:
+                time.sleep(0.1)         # a real double-click has a gap in it
             self.mouse.press(Button.left)
             time.sleep(0.12)
             self.mouse.release(Button.left)

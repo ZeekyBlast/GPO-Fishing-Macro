@@ -396,16 +396,16 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
         publish("warn", "Sen's dialogue did not appear - stand at Blacksmith Sen, "
                         f"or check the talk key ({cfg.talk_key})")
         return 0
-    # The dialogue tweens in; a click during the tween is ignored, so give it
-    # a beat, and give Yes a second try before calling it a failure.
+    # The dialogue tweens in, so give it a beat. Yes wants a double-click: a
+    # single one is swallowed every time, a second one a moment later takes.
+    # One retry on top before calling it a failure.
     time.sleep(settle)
     for _ in range(2):
-        input_ctl.click(cfg.dialog_yes, delay_after=settle)
+        input_ctl.click(cfg.dialog_yes, delay_after=settle, double=True)
         if wait_changed(grabber, tracker, cfg.menu_region, before_menu,
                         timeout=2.5, min_change=0.15):
             break
     else:
-        input_ctl.tap_escape()
         _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
         publish("warn", "craft menu did not open after Yes")
         return 0
@@ -426,8 +426,11 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
                 return False
             time.sleep(0.08)
 
-    input_ctl.click(cfg.craft_recipe, delay_after=settle)
-    if not counter_is("red", 1.5) and not counter_is("green", 0.2):
+    for _ in range(2):                          # the first click can be eaten
+        input_ctl.click(cfg.craft_recipe, delay_after=settle)
+        if counter_is("red", 1.5) or counter_is("green", 0.2):
+            break
+    else:
         _close_menu(input_ctl, grabber, tracker, cfg, settle)
         _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
         publish("warn", "recipe row did not select - the N/M counter never appeared")
@@ -435,7 +438,7 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
 
     publish("info", "crafting bait at Sen")
     crafted = stacks = 0
-    out_of_fish = False
+    out_of_fish = stopped = False           # stopped: a warning already said why
     stack_ready = bool(cfg.craft_slider and cfg.craft_slider_end and cfg.craft_all)
     try:
         while crafted < CRAFT_CEILING:
@@ -465,27 +468,37 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
                 break
             craft_at = wait_for_green(grabber, tracker, cfg.craft_button, 120, 50, timeout=0.6)
             if craft_at is None:
+                stopped = True
                 publish("warn", "CRAFT button not found near its anchor")
                 break
             input_ctl.click(craft_at, delay_after=0.1)
             # Two or more of one fish and CRAFT asks how many instead of
             # crafting: a slider with Craft Selected beside it. Drag the knob
-            # to the end and take the whole stack in one go.
+            # to the end and take the whole stack in one go. A CRAFT that did
+            # nothing for a second was eaten and gets one more click.
             done = False
-            deadline = time.monotonic() + 2.5
+            began = time.monotonic()
+            deadline = began + 3.5
+            retried = False
             while time.monotonic() < deadline:
                 if counter_is("red", 0.05):
                     done = True
                     break
+                if not retried and time.monotonic() - began > 1.2:
+                    retried = True
+                    input_ctl.click(craft_at, delay_after=0.1)
                 if stack_ready:
                     ask = wait_for_green(grabber, tracker, cfg.craft_all, 80, 30, timeout=0.05)
                     if ask is not None:
                         input_ctl.drag(cfg.craft_slider, cfg.craft_slider_end, delay_after=0.2)
-                        input_ctl.click(ask, delay_after=0.1)
+                        # Like Yes, a button on a panel that just opened eats
+                        # its first click; the second one takes.
+                        input_ctl.click(ask, delay_after=0.1, double=True)
                         done = counter_is("red", 2.5)
                         stacks += 1
                         break
             if not done:
+                stopped = True
                 publish("warn", "CRAFT click had no effect - stopping"
                                 + ("" if stack_ready else " (a stack of one fish needs the "
                                    "quantity dialog calibrated)"))
@@ -502,18 +515,22 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
         publish("info", what + (", fish used up" if out_of_fish else ""))
     elif out_of_fish:
         publish("info", "no fish to craft bait from")
-    else:
+    elif not stopped:
         publish("warn", "crafted nothing - the material counter never turned green")
     return crafted
 
 
 def _close_menu(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
                 cfg: BaitConfig, settle: float) -> None:
+    # The first click after the menu changed state (a craft, a dialog
+    # closing) is eaten; a second one takes. Escape is never the fallback:
+    # it is Roblox's own menu key and opens the CoreGui over everything.
     while_open = probe(grabber, tracker, cfg.menu_region)
-    input_ctl.click(cfg.craft_close, delay_after=settle)
-    if not wait_changed(grabber, tracker, cfg.menu_region, while_open,
+    for _ in range(2):
+        input_ctl.click(cfg.craft_close, delay_after=settle)
+        if wait_changed(grabber, tracker, cfg.menu_region, while_open,
                         timeout=1.5, min_change=0.3):
-        input_ctl.tap_escape()
+            return
 
 
 def _end_conversation(input_ctl: InputController, grabber: ScreenGrabber,
@@ -552,7 +569,8 @@ def buy_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Window
     input_ctl.click(cfg.shop_quantity, delay_after=0.2)
     input_ctl.type_text(str(max(1, cfg.buy_amount)), delay_after=settle)
     if not wait_changed(grabber, tracker, qty_box, untyped, timeout=1.0, min_change=0.02):
-        input_ctl.tap_escape()
+        if cfg.shop_cancel:
+            input_ctl.click(cfg.shop_cancel, delay_after=settle)
         publish("warn", "the amount did not show up in the quantity box - nothing bought")
         return False
 
@@ -565,11 +583,8 @@ def buy_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Window
         publish("info", f"bought {cfg.buy_amount} bait")
 
     # Only click Cancel on a dialog that is still there; on the dock it is a cast.
-    if not wait_changed(grabber, tracker, qty_box, open_dialog, timeout=1.0):
-        if cfg.shop_cancel:
-            input_ctl.click(cfg.shop_cancel, delay_after=settle)
-        else:
-            input_ctl.tap_escape()
+    if not wait_changed(grabber, tracker, qty_box, open_dialog, timeout=1.0) and cfg.shop_cancel:
+        input_ctl.click(cfg.shop_cancel, delay_after=settle)
     return not refused
 
 
