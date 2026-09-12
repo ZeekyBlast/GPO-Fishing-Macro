@@ -141,6 +141,37 @@ def main():
     assert bot.stop_reason == "window_lost" and bot._stop_event.is_set(), bot.stop_reason
     assert not bot._input.mouse_held, "mouse still held after the window vanished"
 
+    # Before the button goes down: optional re-equip, optional bait row, then
+    # the aim - in that order, because the bait row is a click and the cast
+    # fires wherever the cursor is when the hold starts.
+    from gpo_macro.fisher import prepare_cast
+
+    class CastInput(FakeInput):
+        def __init__(self):
+            super().__init__()
+            self.moves = []
+
+        def move_to(self, x, y):
+            self.moves.append((x, y))
+            self.mouse.position = (float(x), float(y))
+
+    aimed = AppConfig()
+    aimed.fishing.cast_point = [1500, 700]
+    aimed.fishing.equip_every_cast = True
+    aimed.fishing.alt_slot_key = "3"
+    aimed.bait.select_every_cast = True
+    aimed.bait.bait_select = [90, 500]
+    ctl = CastInput()
+    prepare_cast(ctl, aimed, lambda *a, **k: None)
+    assert ctl.keys == ["3", "1"], ctl.keys
+    assert ctl.clicks == [(90, 500)], ctl.clicks
+    assert ctl.moves == [(1500, 700)] and ctl.mouse.position == (1500.0, 700.0), ctl.moves
+
+    # Everything off: nothing happens, the cursor stays where it was.
+    ctl = CastInput()
+    prepare_cast(ctl, AppConfig(), lambda *a, **k: None)
+    assert ctl.keys == [] and ctl.clicks == [] and ctl.moves == [] and ctl.mouse.position == WATER
+
     print("all fisher checks passed")
 
 

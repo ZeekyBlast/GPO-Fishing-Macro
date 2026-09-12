@@ -7,10 +7,10 @@ import paths  # noqa: F401  - puts the project root on sys.path
 import numpy as np
 
 from gpo_macro.config import BaitConfig, FruitConfig, Region
-from gpo_macro.tasks import (box_around, buy_bait, changed_fraction, classify_banner,
-                             craft_bait, find_green_prompt, fruit_positions,
-                             green_fraction, red_fraction, store_fruits, upkeep_bait,
-                             walked_to_sen)
+from gpo_macro.tasks import (WalkError, box_around, buy_bait, changed_fraction,
+                             classify_banner, craft_bait, find_green_prompt,
+                             fruit_positions, green_fraction, red_fraction, store_fruits,
+                             upkeep_bait, walked_to_sen)
 
 # ---------------------------------------------------------------- fixtures
 
@@ -276,6 +276,7 @@ def bait_config(**kw):
                 craft_recipe=[120, 400], craft_add=[500, 200], craft_pick=[900, 120],
                 craft_counter_region=Region(480, 230, 540, 250),
                 craft_button=[500, 700], craft_close=[640, 60], dialog_end=[350, 900],
+                craft_slider=[300, 560], craft_slider_end=[560, 560], craft_all=[300, 640],
                 bait_select=[900, 500],
                 shop_quantity=[400, 320], shop_confirm=[300, 420], shop_cancel=[500, 420],
                 buy_amount=100, shop_hold=0.0, walk_to_sen=False, max_walk=0.5)
@@ -307,10 +308,15 @@ class CraftInput(FakeInput):
 
     def release_keys(self, names=None):
         self.down.append(("up", names))
+        self.screen.on_release(names)
 
     def type_text(self, text, delay_after=0.0):
         self.typed.append(text)
         self.screen.on_type(text)
+
+    def drag(self, start, end, delay_after=0.0):
+        self.holds.append(("drag", tuple(start), tuple(end)))
+        self.screen.on_drag(tuple(start), tuple(end))
 
 
 class SenScreen:
@@ -323,10 +329,12 @@ class SenScreen:
     menu when + is pressed with no fish left - all read, never counted.
     """
 
-    def __init__(self, cfg, fish, need=1, prompt=True, walk_steps=0):
+    def __init__(self, cfg, fish, need=1, prompt=True, walk_steps=0, stacked=False):
         self.cfg, self.fish, self.need, self.prompt = cfg, fish, need, prompt
+        self.stacked = stacked              # all the fish are one kind: CRAFT asks how many
         self.dialog = self.menu = self.selected = self.talking = False
-        self.picker = self.error = False
+        self.picker = self.error = self.asking = False
+        self.slider_at_end = False
         self.slot = self.crafted = 0
         self.banner = EMPTY
         self.steps_to_sen = walk_steps     # grab_full calls before the badge shows
@@ -340,6 +348,13 @@ class SenScreen:
 
     def on_hold(self, names, seconds):
         pass
+
+    def on_release(self, names):
+        pass
+
+    def on_drag(self, start, end):
+        if self.asking and start == tuple(self.cfg.craft_slider)                 and end == tuple(self.cfg.craft_slider_end):
+            self.slider_at_end = True
 
     def on_type(self, text):
         pass
@@ -366,8 +381,16 @@ class SenScreen:
             if self.fish > 0 and self.slot < self.need:
                 self.fish -= 1
                 self.slot += 1
+        elif self.asking and cfg.craft_all and abs(point[0] - cfg.craft_all[0]) < 90                 and abs(point[1] - cfg.craft_all[1]) < 40:
+            made = self.fish + 1 if self.slider_at_end else 1     # the slot's fish plus the rest
+            self.crafted += made
+            self.fish -= made - 1
+            self.slot = 0
+            self.asking = self.picker = self.slider_at_end = False
         elif abs(point[0] - cfg.craft_button[0]) < 130 and abs(point[1] - cfg.craft_button[1]) < 60:
-            if self.slot == self.need:
+            if self.slot == self.need and self.stacked and self.fish > 0:
+                self.asking = True                  # "1 Legendary Fish Bait", slider, Craft Selected
+            elif self.slot == self.need:
                 self.crafted += 1
                 self.slot = 0
                 self.picker = False
@@ -402,6 +425,8 @@ class SenScreen:
         centre_x = (region.x1 + region.x2) // 2
         if self.menu and abs(centre_x - cfg.craft_button[0]) < 5:
             frame[h // 2 - 15:h // 2 + 15, w // 2 - 60:w // 2 + 60] = (60, 190, 70)  # CRAFT
+        if self.menu and self.asking and cfg.craft_all and abs(centre_x - cfg.craft_all[0]) < 5                 and abs((region.y1 + region.y2) // 2 - cfg.craft_all[1]) < 5:
+            frame[h // 2 - 12:h // 2 + 12, w // 2 - 50:w // 2 + 50] = (60, 190, 70)  # Craft Selected
         if region == box_around(cfg.craft_pick):
             return np.full((48, 48, 3), (30, 30, 30) if self.menu and self.picker else PLANKS,
                            np.uint8)
@@ -415,9 +440,9 @@ class SenScreen:
         return frame
 
 
-def craft(fish, need=1, prompt=True, **kw):
+def craft(fish, need=1, prompt=True, stacked=False, **kw):
     cfg = bait_config(**kw)
-    screen = SenScreen(cfg, fish, need, prompt=prompt)
+    screen = SenScreen(cfg, fish, need, prompt=prompt, stacked=stacked)
     input_ctl = CraftInput(screen)
     events = []
     made = craft_bait(input_ctl, screen, None, cfg, BANNER,
@@ -435,6 +460,18 @@ assert input_ctl.clicks.count(tuple(bait_config().craft_add)) == 4, input_ctl.cl
 assert screen.error, "never asked + with no fish left"
 assert "esc" not in input_ctl.keys, input_ctl.keys                # closed by the X
 assert any("crafted 3" in m for _k, m in events), events
+
+# Five of one fish: CRAFT asks how many. The slider goes to the end and the
+# whole stack is taken in one pass - one CRAFT, one drag, one Craft Selected.
+made, input_ctl, screen, events = craft(fish=5, stacked=True)
+assert screen.crafted == 5 and screen.fish == 0, (screen.crafted, screen.fish, events)
+assert ("drag", (300, 560), (560, 560)) in input_ctl.holds, input_ctl.holds
+assert any("1 whole stack" in m for _k, m in events), events
+
+# The stack dialog not calibrated: the pass stops and says which button is missing.
+made, input_ctl, screen, events = craft(fish=5, stacked=True, craft_all=[])
+assert screen.crafted == 0 and screen.fish == 4, (screen.crafted, screen.fish)
+assert any("quantity dialog calibrated" in m for _k, m in events), events
 
 # Rare bait needs two fish per craft: five fish make two, the odd one stays.
 made, input_ctl, screen, events = craft(fish=5, need=2)
@@ -462,51 +499,129 @@ assert any("not calibrated" in m and "craft add" in m for _k, m in events), even
 BADGE = np.full((30, 30, 3), (235, 235, 235), np.uint8)
 BADGE[8:22, 13:17] = (40, 40, 40)                         # the T's stem
 BADGE[8:12, 8:22] = (40, 40, 40)                          # its bar
+TAG = np.full((20, 80, 3), (20, 20, 20), np.uint8)
+TAG[4:16, 6:74] = (240, 240, 240)                         # "Blacksmith Sen", roughly
+TAG[8:12, 20:60] = (20, 20, 20)
 PROMPT = str(paths.scratch() / "prompt_t.png")
+TAGFILE = str(paths.scratch() / "sen_tag.png")
 cv2.imwrite(PROMPT, BADGE)
+cv2.imwrite(TAGFILE, TAG)
 reset_template_cache()
 
+import time as _time  # noqa: E402
 
-def walk(steps, body_raises=False, **kw):
-    kw = dict(walk_to_sen=True, prompt_template=PROMPT, walk_keys="w+d",
-              return_keys="s+a", return_scale=1.0) | kw
+
+class Dock:
+    """A one-dimensional dock, seen through the camera.
+
+    p is the character's place along it: 0 at the fishing spot, 100 at Sen.
+    Held keys move it at a rate per second - the way back sprints, which is
+    exactly what put the timed leg in the sea. Sen's nametag draws at
+    x = 600 - 4p, so it sits at 600 from the spot and 200 from Sen; the T
+    badge shows within his prompt range. Nothing is counted: the walk only
+    ever sees the frame.
+    """
+
+    IN, BACK, TAP = 100.0, 260.0, 100.0     # p per second: leg in, leg back, trim taps
+
+    def __init__(self, cfg, tag_visible=True, prompt=True):
+        self.cfg, self.tag_visible, self.prompt = cfg, tag_visible, prompt
+        self.p = 0.0
+        self.vel = 0.0
+        self.since = _time.monotonic()
+
+    def _settle(self):
+        now = _time.monotonic()
+        self.p += self.vel * (now - self.since)
+        self.since = now
+
+    def on_key(self, names):
+        self._settle()
+        if names == self.cfg.walk_keys:
+            self.vel = self.IN
+        elif names == self.cfg.return_keys:
+            self.vel = -self.BACK
+
+    def on_release(self, names):
+        self._settle()
+        self.vel = 0.0
+
+    def on_hold(self, names, seconds):
+        self._settle()
+        self.p += (self.TAP if names == self.cfg.walk_keys else -self.TAP) * seconds
+
+    def on_click(self, point):
+        pass
+
+    def grab_region(self, tracker, region):
+        return np.full((region.height(), region.width(), 3), PLANKS, np.uint8)
+
+    def grab_client(self, tracker):
+        self._settle()
+        frame = np.full((300, 1000, 3), PLANKS, np.uint8)
+        if self.tag_visible:
+            x = int(round(600 - 4 * self.p))
+            if 0 <= x - 40 and x + 40 <= 1000:
+                frame[90:110, x - 40:x + 40] = TAG
+        if self.prompt and self.p >= 90:
+            frame[200:230, 200:230] = BADGE
+        return frame
+
+
+def walk(body_raises=False, tag_visible=True, prompt=True, **kw):
+    kw = dict(walk_to_sen=True, prompt_template=PROMPT, tag_template=TAGFILE,
+              home_tag=[600, 100], home_tolerance=12, walk_keys="w+d",
+              return_keys="s+a", max_walk=3.0) | kw
     cfg = bait_config(**kw)
-    screen = SenScreen(cfg, fish=0, walk_steps=steps)
-    screen.badge = BADGE
-    input_ctl = CraftInput(screen)
+    dock = Dock(cfg, tag_visible, prompt)
+    input_ctl = CraftInput(dock)
     events = []
     arrived = None
+    error = None
     try:
-        with walked_to_sen(input_ctl, screen, cfg,
+        with walked_to_sen(input_ctl, dock, None, cfg,
                            lambda kind, message, **data: events.append((kind, message))) as there:
             arrived = there
-            screen.steps_to_sen = 99          # walking back: the badge leaves the screen
             if body_raises:
                 raise RuntimeError("craft blew up")
-    except RuntimeError:
-        pass
-    return arrived, input_ctl, events
+    except RuntimeError as exc:
+        error = exc
+    return arrived, dock, input_ctl, events, error
 
 
-# Walks until the badge shows, then walks back for as long as that took.
-arrived, input_ctl, events = walk(steps=3)
-assert arrived is True, events
-assert input_ctl.down == [("down", "w+d"), ("up", "w+d")], input_ctl.down
-assert len(input_ctl.holds) == 1 and input_ctl.holds[0][0] == "s+a", input_ctl.holds
-assert 0.15 <= input_ctl.holds[0][1] <= 0.6, input_ctl.holds     # ~3 polls at 0.1 s
+# In until the badge, back until the nametag is home - and home is a
+# measurement, so the sprint on the way back does not matter.
+arrived, dock, input_ctl, events, error = walk()
+assert arrived is True and error is None, (events, error)
+assert input_ctl.down[:2] == [("down", "w+d"), ("up", "w+d")], input_ctl.down
+assert ("down", "s+a") in input_ctl.down, input_ctl.down
+assert abs(dock.p) <= 12 / 4 + 1, f"ended at p={dock.p:.1f}, not the fishing spot"
+assert any("walked to Sen" in m for _k, m in events), events
 
-# The prompt never shows: gives up at max_walk, still walks back, says so.
-arrived, input_ctl, events = walk(steps=999, max_walk=0.5)
-assert arrived is False
-assert input_ctl.down[-1] == ("up", "w+d") and input_ctl.holds[0][0] == "s+a", input_ctl
+# The prompt never shows: gives up at max_walk, still steers back home.
+arrived, dock, input_ctl, events, error = walk(prompt=False, max_walk=0.6)
+assert arrived is False and error is None, (events, error)
+assert abs(dock.p) <= 4, dock.p
 assert any("never showed" in m for _k, m in events), events
 
 # The craft raising must not leave the character standing at Sen.
-arrived, input_ctl, events = walk(steps=1, body_raises=True)
-assert arrived is True and input_ctl.holds and input_ctl.holds[0][0] == "s+a", input_ctl.holds
+arrived, dock, input_ctl, events, error = walk(body_raises=True)
+assert arrived is True and isinstance(error, RuntimeError) and not isinstance(error, WalkError)
+assert abs(dock.p) <= 4, dock.p
+
+# No nametag in sight: never walks blind - keys released, WalkError raised.
+arrived, dock, input_ctl, events, error = walk(tag_visible=False)
+assert isinstance(error, WalkError), error
+assert input_ctl.down[-1][0] == "up" or ("down", "s+a") not in input_ctl.down, input_ctl.down
+assert dock.p >= 85, f"walked back blind to p={dock.p:.1f}"
+
+# Not calibrated: one warning, nothing pressed.
+arrived, dock, input_ctl, events, error = walk(home_tag=[])
+assert arrived is False and input_ctl.down == [] and input_ctl.holds == []
+assert any("not calibrated" in m and "home position" in m for _k, m in events), events
 
 # Walking off means no leg at all.
-arrived, input_ctl, events = walk(steps=0, walk_to_sen=False)
+arrived, dock, input_ctl, events, error = walk(walk_to_sen=False)
 assert arrived is True and input_ctl.down == [] and input_ctl.holds == []
 
 

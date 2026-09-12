@@ -413,17 +413,30 @@ public sealed class MainViewModel : Observable
         new("Re-sample both", "resample"),
         new("Sample gauge blue", "blue"), new("Sample bar black", "black"));
 
-    public CalibrationSection Bait { get; } = new("bait", "3 \u00b7 BAIT UPKEEP",
+    public CalibrationSection Cast { get; } = new("cast", "3 \u00b7 CAST",
+        "Optional. Where the line goes and how hard. Pick a point over the water and the " +
+        "cursor moves there before every cast, so a menu or a hand cannot leave it aimed " +
+        "at the dock. GPO has no power meter: holding longer casts farther, up to a cap, " +
+        "so Test cast with the rod out, watch the bobber, and change Cast hold in Settings.",
+        true,
+        new("Test cast", "test_cast"),
+        new CalibrationAction("Pick cast point", "cast_point"));
+
+    public CalibrationSection Bait { get; } = new("bait", "4 \u00b7 BAIT UPKEEP",
         "Work in progress: auto-craft and auto-buy run but are not yet proven over a long " +
         "session. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, " +
         "the menu, the fish list, the bubble he leaves behind, then your bait's row on the " +
         "rod. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. " +
-        "Snip the T badge only if the macro has to walk to Sen.", true,
+        "Only if the macro has to walk to Sen: snip his T badge standing at him, and his " +
+        "floating name standing at the fishing spot - the walk back steers by where that " +
+        "name sits on screen.", true,
         new("Calibrate crafting", "craft"),
         new("Menu region", "menu"), new("N/M counter", "counter"), new("Bait row", "row"),
-        new("Pick barrel points", "barrel"), new("Snip Sen's T badge", "badge"));
+        new("Stack dialog", "stack"),
+        new("Pick barrel points", "barrel"), new("Snip Sen's T badge", "badge"),
+        new("Snip Sen's name (from the spot)", "nametag"));
 
-    public CalibrationSection Fruit { get; } = new("fruit", "4 \u00b7 DEVIL FRUIT STORAGE",
+    public CalibrationSection Fruit { get; } = new("fruit", "5 \u00b7 DEVIL FRUIT STORAGE",
         "Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, " +
         "presses that key, clicks the green Store Fruit prompt, and reads the banner to see " +
         "whether it took. Stand at the storage point while you calibrate.", true,
@@ -431,7 +444,7 @@ public sealed class MainViewModel : Observable
         new("Snip fruit icon", "icon"), new("Hotbar row", "hotbar"), new("Banner strip", "banner"),
         new("Store button", "store"));
 
-    public CalibrationSection[] Calibration => new[] { Region, Colours, Bait, Fruit };
+    public CalibrationSection[] Calibration => new[] { Region, Colours, Cast, Bait, Fruit };
 
     private string _calibrationSummary = "";
     public string CalibrationSummary

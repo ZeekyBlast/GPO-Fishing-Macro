@@ -147,6 +147,14 @@ class ScreenGrabber:
         frame = np.asarray(shot)[:, :, :3]  # BGRA -> BGR
         return frame.copy()
 
+    def grab_client(self, tracker: WindowTracker) -> np.ndarray:
+        """The whole Roblox client area, so matches come back window-relative."""
+        info = tracker.refresh()
+        if info is None:
+            raise ValueError("no Roblox window")
+        width, height = client_size(info.hwnd)
+        return self.grab_region(tracker, Region(0, 0, width, height))
+
     def grab_full(self) -> np.ndarray:
         monitor = self._sct.monitors[1]  # primary monitor
         shot = self._sct.grab(monitor)

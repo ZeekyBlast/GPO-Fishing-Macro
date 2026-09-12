@@ -18,6 +18,14 @@ namespace GpoMacro;
 
 public partial class MainWindow : Window
 {
+    // CRAFT with two or more of one fish opens a quantity dialog instead of
+    // crafting: the engine drags the slider to its end and takes the stack.
+    private static readonly string[] StackPoints =
+        { "the slider's knob", "the far right end of the slider's track",
+          "anywhere on the green Craft Selected button" };
+    private static readonly string[] StackAttrs =
+        { "craft_slider", "craft_slider_end", "craft_all" };
+
     private static readonly string[] BaitShopPoints =
         { "the quantity box in the barrel's dialog", "Confirm", "Cancel (optional)" };
 
@@ -129,6 +137,8 @@ public partial class MainWindow : Window
         switch (kindElement.GetString())
         {
             case "hello":
+                _settingsPath = frame.TryGetProperty("settings_path", out var sp)
+                    ? sp.GetString() ?? "" : "";
                 _model.AdoptStyles(frame);
                 BuildSettings(frame);
                 AdoptConfig(frame.GetProperty("config"));
@@ -216,6 +226,63 @@ public partial class MainWindow : Window
 
     /// <summary>Put one section back to the engine's defaults. Nothing is
     /// written: the rows go dirty and Save is still the only way out.</summary>
+    private string _settingsPath = "";
+
+    /// <summary>The settings as a file to hand to someone - minus the webhook
+    /// URL, which is a credential and the one thing an export must not carry.</summary>
+    private void ExportSettings_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_haveConfig) return;
+        var dialog = new Microsoft.Win32.SaveFileDialog
+        {
+            Filter = "Settings (*.json)|*.json", FileName = "gpo-macro-settings.json",
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        var node = System.Text.Json.Nodes.JsonNode.Parse(_config.GetRawText())!.AsObject();
+        if (node["webhook"] is System.Text.Json.Nodes.JsonObject webhook) webhook["url"] = "";
+        File.WriteAllText(dialog.FileName, node.ToJsonString(
+            new JsonSerializerOptions { WriteIndented = true }));
+        _model.AddLog("info", $"settings exported to {dialog.FileName} - without the webhook URL");
+    }
+
+    /// <summary>Load a settings file over the current ones. The engine merges
+    /// it, drops keys it does not know, and keeps craft-or-buy to one.</summary>
+    private async void ImportSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog { Filter = "Settings (*.json)|*.json" };
+        if (dialog.ShowDialog(this) != true) return;
+        JsonElement patch;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(dialog.FileName));
+            if (doc.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException("not an object");
+            patch = doc.RootElement.Clone();
+        }
+        catch (Exception ex) when (ex is JsonException or IOException)
+        {
+            _model.AddLog("error", $"could not read {dialog.FileName}: {ex.Message}");
+            return;
+        }
+        var reply = await _engine.CallAsync("set_config",
+            new Dictionary<string, object?> { ["patch"] = patch });
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "import"); return; }
+        AdoptConfig(result.GetProperty("config"));
+        _model.AddLog("info", $"settings imported from {dialog.FileName}");
+    }
+
+    private void OpenSettingsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_settingsPath)) return;
+        try
+        {
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{_settingsPath}\"");
+        }
+        catch (Exception ex)
+        {
+            _model.AddLog("warn", $"could not open the settings folder: {ex.Message}");
+        }
+    }
+
     private void ResetSection_Click(object sender, RoutedEventArgs e)
     {
         if (_defaults.ValueKind != JsonValueKind.Object) return;
@@ -557,13 +624,18 @@ public partial class MainWindow : Window
             "resample" => ResampleBothAsync(),
             "blue" => SampleColourAsync("bar_blue"),
             "black" => SampleColourAsync("track_gray"),
+            "test_cast" => TestCastAsync(),
+            "cast_point" => PickPointAsync("fishing", "cast_point",
+                "a spot on the water where the line should land", "cast point"),
             "craft" => CraftWizardAsync(),
             "menu" => BaitMenuAsync(),
+            "stack" => PickBaitAsync(StackPoints, StackAttrs, "stack dialog"),
             "counter" => BaitCounterAsync(),
             "row" => BaitRowAsync(),
             "barrel" => PickBaitAsync(BaitShopPoints,
                 new[] { "shop_quantity", "shop_confirm", "shop_cancel" }, "barrel"),
             "badge" => BaitPromptAsync(),
+            "nametag" => BaitTagAsync(),
             "storage" => StorageWizardAsync(),
             "icon" => FruitTemplateAsync(),
             "hotbar" => FruitHotbarAsync(),
@@ -724,19 +796,33 @@ public partial class MainWindow : Window
             if (!await PickBaitAsync(new[] { "the first fish in the list" }, new[] { "craft_pick" },
                     "fish list")) return;
 
-            if (!await StepAsync(4, "closing",
-                    "Click + again to close the list, then click the red X. Sen's \"...\" bubble " +
-                    "stays at the bottom of the screen - leave it there.")) return;
+            // Optional: only shows when a fish is stacked, so Skip moves on.
+            var stackSkipped = true;
+            if (await StepAsync(4, "the stack dialog (optional)",
+                    "If you have two or more of the same fish: click the fish in the list, then " +
+                    "CRAFT. A dialog with a slider and a green Craft Selected appears - leave it " +
+                    "open. Without a stack, press Skip; the Stack dialog button does this later."))
+            {
+                if (!await PickBaitAsync(StackPoints, StackAttrs, "stack dialog")) return;
+                stackSkipped = false;
+            }
+
+            if (!await StepAsync(5, "closing",
+                    "Close the dialog if it is open, click + to close the fish list if it is " +
+                    "open, then click the red X. Sen's \"...\" bubble stays at the bottom of " +
+                    "the screen - leave it there.")) return;
             if (!await PickBaitAsync(new[] { "the ... bubble" }, new[] { "dialog_end" },
                     "bubble")) return;
 
-            if (!await StepAsync(5, "the bait row",
+            if (!await StepAsync(6, "the bait row",
                     "Click the ... bubble to end the conversation, then hold your fishing rod " +
                     "so the Fishing Baits panel shows.")) return;
             if (!await PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel" },
                     new[] { "bait_select" }, "bait row")) return;
 
-            _model.AddLog("info", "crafting calibrated - turn on Auto-craft in Settings");
+            _model.AddLog("info", "crafting calibrated - turn on Auto-craft in Settings"
+                + (stackSkipped ? ". Stack dialog skipped: the first stacked fish stops a pass " +
+                                  "until Stack dialog is calibrated" : ""));
         }
         finally
         {
@@ -752,7 +838,7 @@ public partial class MainWindow : Window
     private Task<bool> StepAsync(int index, string title, string instructions)
     {
         _prompt = new TaskCompletionSource<bool>();
-        _model.ShowPrompt("crafting", index, 5, title, instructions);
+        _model.ShowPrompt("crafting", index, 6, title, instructions);
         return _prompt.Task;
     }
 
@@ -788,9 +874,38 @@ public partial class MainWindow : Window
         await ReloadConfigAsync();
     }
 
+    /// <summary>Snip "Blacksmith Sen" from the fishing spot. The snip is the
+    /// template and its centre is home: where the label sits when the
+    /// character is standing where it should fish from.</summary>
+    private async Task BaitTagAsync()
+    {
+        var region = await PickRegionAsync(
+            "Stand exactly where you fish from, then drag a tight box around Sen's floating " +
+            "\"Blacksmith Sen\" name - just the text");
+        if (region is null) return;
+        var (x1, y1, x2, y2) = region.Value;
+        var path = _config.GetProperty("bait").GetProperty("tag_template").GetString();
+        var reply = await _engine.CallAsync("save_template",
+            new Dictionary<string, object?>
+                { ["x1"] = x1, ["y1"] = y1, ["x2"] = x2, ["y2"] = y2, ["path"] = path });
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "nametag"); return; }
+        await PatchAsync("bait", new Dictionary<string, object?>
+            { ["home_tag"] = new[] { (x1 + x2) / 2, (y1 + y2) / 2 } });
+        _model.AddLog("info",
+            $"nametag saved ({result.GetProperty("width").GetInt32()}x" +
+            $"{result.GetProperty("height").GetInt32()}), home at ({(x1 + x2) / 2},{(y1 + y2) / 2})");
+    }
+
     /// <summary>Pick the labelled points and store them. True only if every
     /// one was picked, so a wizard stops where the user stopped.</summary>
-    private async Task<bool> PickBaitAsync(string[] labels, string[] attrs, string what)
+    private Task<bool> PickBaitAsync(string[] labels, string[] attrs, string what) =>
+        PickPointsAsync("bait", labels, attrs, what);
+
+    private Task<bool> PickPointAsync(string objectName, string attr, string label, string what) =>
+        PickPointsAsync(objectName, new[] { label }, new[] { attr }, what);
+
+    private async Task<bool> PickPointsAsync(string objectName, string[] labels, string[] attrs,
+                                             string what)
     {
         var origin = await ClientOriginAsync();
         if (origin is null) return false;
@@ -805,9 +920,23 @@ public partial class MainWindow : Window
                 ? new[] { point.X - ox, point.Y - oy }
                 : Array.Empty<int>();
 
-        await PatchAsync("bait", patch);
+        await PatchAsync(objectName, patch);
         _model.AddLog("info", $"{what} points saved: {picked.Count}/{labels.Length}");
         return picked.Count == labels.Length;
+    }
+
+    /// <summary>One cast with the configured hold and aim. There is nothing to
+    /// read back: the user watches the bobber and changes Cast hold.</summary>
+    private async Task TestCastAsync()
+    {
+        var reply = await _engine.CallAsync("test_cast");
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "test cast"); return; }
+        var hold = result.GetProperty("hold").GetDouble();
+        var aimed = result.GetProperty("aimed").GetBoolean();
+        _model.AddLog("info", string.Format(CultureInfo.InvariantCulture,
+            "cast with a {0:0.00}s hold {1} - watch where the bobber lands, then change " +
+            "Cast hold in Settings and cast again", hold,
+            aimed ? "at the cast point" : "wherever the cursor was (no cast point set)"));
     }
 
     private async Task<bool> FruitTemplateAsync()
@@ -981,20 +1110,37 @@ public partial class MainWindow : Window
         });
         _model.Fruit.Show(fruitParts.All(p => p.Length > 0) ? CalibrationState.Set : CalibrationState.NotSet);
 
+        var fishing = _config.GetProperty("fishing");
+        var castPoint = Point(fishing.GetProperty("cast_point"));
+        _model.Cast.Readout = string.Join("\n", new[]
+        {
+            Row("aim", castPoint.Length > 0 ? castPoint : "wherever the cursor is"),
+            Row("hold", string.Format(CultureInfo.InvariantCulture, "{0:0.00}s",
+                fishing.GetProperty("cast_hold_duration").GetDouble())),
+            Row("re-equip", fishing.GetProperty("equip_every_cast").GetBoolean() ? "every cast" : "once"),
+        });
+        _model.Cast.Show(castPoint.Length > 0 ? CalibrationState.Set : CalibrationState.NotSet);
+
         var bait = _config.GetProperty("bait");
         var badge = bait.GetProperty("prompt_template").GetString() ?? "";
         var badgePath = Path.IsPathRooted(badge) ? badge : Path.Combine(_engine.RepoRoot, badge);
+        var tag = bait.GetProperty("tag_template").GetString() ?? "";
+        var tagPath = Path.IsPathRooted(tag) ? tag : Path.Combine(_engine.RepoRoot, tag);
+        var home = Point(bait.GetProperty("home_tag"));
         var craft = PointsSet(bait, "dialog_yes", "craft_recipe", "craft_add", "craft_pick",
                               "craft_button", "craft_close", "dialog_end");
+        var stack = PointsSet(bait, StackAttrs);
         var barrel = PointsSet(bait, "shop_quantity", "shop_confirm");
         _model.Bait.Readout = string.Join("\n", new[]
         {
             Row("craft", craft),
+            Row("stack", stack),
             Row("menu", RegionSize(bait.GetProperty("menu_region"))),
             Row("counter", RegionSize(bait.GetProperty("craft_counter_region"))),
             Row("bait row", Point(bait.GetProperty("bait_select"))),
             Row("barrel", barrel),
             Row("T badge", File.Exists(badgePath) ? badge : ""),
+            Row("nametag", File.Exists(tagPath) && home.Length > 0 ? $"home {home}" : ""),
         });
         _model.Bait.Show(craft.StartsWith("7/") || barrel.StartsWith("2/")
             ? CalibrationState.Set : CalibrationState.NotSet);
@@ -1016,11 +1162,11 @@ public partial class MainWindow : Window
             !valid ? "The scan region is not set, so nothing can fish yet."
             : _model.Region.BaseState == CalibrationState.Failed
                 ? "Set, but the last test could not read the gauge."
-            : $"{Words[set]} of four set. Bait upkeep and fruit storage are optional and " +
+            : $"{Words[set]} of five set. Cast, bait upkeep and fruit storage are optional and " +
               $"{(baitOn, fruitOn) switch { (true, true) => "on", (false, false) => "off", _ => "one is on" }}.";
     }
 
-    private static readonly string[] Words = { "None", "One", "Two", "Three", "Four" };
+    private static readonly string[] Words = { "None", "One", "Two", "Three", "Four", "Five" };
 
     private static string Ago(DateTime at)
     {

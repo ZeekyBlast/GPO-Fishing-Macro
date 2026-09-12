@@ -29,6 +29,25 @@ from . import vision
 log = logging.getLogger("gpo.fisher")
 
 
+def prepare_cast(input_ctl: InputController, cfg: AppConfig, publish) -> None:
+    """What happens between deciding to cast and pressing the button.
+
+    Optional re-equip (alt slot, then the rod) so a dialog that took the rod
+    away heals in one cast; optional bait reselect while the rod is held; then
+    the aim. The aim goes last: the bait row is a click, and the cast fires at
+    wherever the cursor is when the button goes down.
+    """
+    f = cfg.fishing
+    if f.equip_every_cast:
+        input_ctl.press_key(f.alt_slot_key, delay_after=0.3)
+        input_ctl.press_key(f.rod_key, delay_after=0.3)
+    if cfg.bait.select_every_cast:
+        tasks.select_bait(input_ctl, cfg.bait, publish)
+    if f.cast_point:
+        input_ctl.move_to(int(f.cast_point[0]), int(f.cast_point[1]))
+        time.sleep(0.1)
+
+
 class State(Enum):
     IDLE = "idle"
     FOCUS = "focus"
@@ -229,6 +248,7 @@ class FishingBot(threading.Thread):
             return
         focus_window(info.hwnd)
         time.sleep(0.15)
+        prepare_cast(self._input, self.cfg, self._publish)
         self._input.cast(self.cfg.fishing.cast_hold_duration)
         time.sleep(self.cfg.fishing.post_cast_delay)
         self._black_streak = 0
@@ -458,6 +478,12 @@ class FishingBot(threading.Thread):
                                       self.cfg.fruit.banner_region, self._publish)
         except FailsafeError:
             raise
+        except tasks.WalkError as exc:
+            # Somewhere on the dock with no way to see home. Casting from
+            # here goes into the planks all night; stopping is the safe end.
+            self._publish("error", f"{exc} - stopping")
+            self._stop_event.set()
+            return
         except Exception as exc:
             log.exception("maintenance failed")
             self._publish("error", f"maintenance task failed: {exc!r}")

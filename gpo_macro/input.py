@@ -106,6 +106,20 @@ class InputController:
             self.mouse.release(Button.left)
         self._jittered_delay(delay_after)
 
+    def drag(self, start: Sequence[int], end: Sequence[int], delay_after: float = 0.1) -> None:
+        """Press on `start`, glide to `end`, release - a slider knob."""
+        self.move_to(int(start[0]), int(start[1]))
+        self._jittered_delay(0.3)
+        self.mouse.press(Button.left)
+        time.sleep(0.1)
+        for step in range(1, 13):
+            self.move_to(int(start[0] + (end[0] - start[0]) * step / 12),
+                         int(start[1] + (end[1] - start[1]) * step / 12))
+            time.sleep(0.02)
+        time.sleep(0.1)
+        self.mouse.release(Button.left)
+        self._jittered_delay(delay_after)
+
     def shift_click(self, point: Sequence[int], delay_after: float = 0.15) -> None:
         px, py = int(point[0]), int(point[1])
         self.move_to(px + random.randint(-2, 2), py + random.randint(-2, 2))

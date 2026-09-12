@@ -597,6 +597,18 @@
                             <Button DockPanel.Dock="Left" Style="{StaticResource QuietButton}"
                                     Content="Reset session stats"
                                     MinWidth="170" Margin="6,0,0,0" Click="ResetStats_Click" />
+                            <Button DockPanel.Dock="Left" Style="{StaticResource QuietButton}"
+                                    Content="Export…" MinWidth="90" Margin="6,0,0,0"
+                                    ToolTip="Save these settings to a file, without the webhook URL"
+                                    Click="ExportSettings_Click" />
+                            <Button DockPanel.Dock="Left" Style="{StaticResource QuietButton}"
+                                    Content="Import…" MinWidth="90" Margin="6,0,0,0"
+                                    ToolTip="Load a settings file over these"
+                                    Click="ImportSettings_Click" />
+                            <Button DockPanel.Dock="Left" Style="{StaticResource QuietButton}"
+                                    Content="Open folder" MinWidth="100" Margin="6,0,0,0"
+                                    ToolTip="Show settings.json in Explorer"
+                                    Click="OpenSettingsFolder_Click" />
                             <TextBlock DockPanel.Dock="Left" Text="{Binding DirtyLine}"
                                        Margin="12,0,0,0" VerticalAlignment="Center"
                                        FontFamily="{StaticResource Sans}"

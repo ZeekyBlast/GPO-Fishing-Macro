@@ -79,7 +79,15 @@ class ControllerConfig:
 class FishingConfig:
     equip_rod: bool = True
     rod_key: str = "1"
-    cast_hold_duration: float = 0.05       # seconds to hold LMB for a cast
+    cast_hold_duration: float = 0.05       # seconds to hold LMB: longer casts
+    # farther, up to a cap GPO does not show. Test cast on the Calibration tab
+    # is how a value gets chosen - there is no meter to read.
+    cast_point: list[int] = field(default_factory=list)   # aim: the cursor moves
+    # here before every cast, so where the mouse was left (by a menu, or by a
+    # hand) stops deciding where the bobber lands. Empty = cast where it sits.
+    equip_every_cast: bool = False         # alt slot, then the rod, before each
+    # cast - a dialog that unequipped the rod heals within one cast (K's trick)
+    alt_slot_key: str = "2"
     post_cast_delay: float = 0.7           # settle time after releasing the cast
     recast_timeout: float = 25.0           # no bite within this window => recast
     loot_delay: float = 0.15               # pause after the minigame ends
@@ -117,6 +125,7 @@ class BaitConfig(PointMap):
     bait_select: list[int] = field(default_factory=list)   # your tier's row in the
     # Fishing Baits panel that shows while a rod is held. GPO drops the selection,
     # so it is clicked again after every upkeep pass.
+    select_every_cast: bool = False        # ...and before every cast, if wanted
 
     # Craft: Blacksmith Sen. T -> "are you interested?" -> Yes -> the menu.
     talk_key: str = "t"
@@ -130,6 +139,12 @@ class BaitConfig(PointMap):
     craft_button: list[int] = field(default_factory=list)        # anchor; the green
     # CRAFT slab is searched for around it, like the Store Fruit prompt
     craft_close: list[int] = field(default_factory=list)         # the red X
+    # With two or more of one fish, CRAFT opens a quantity dialog instead: a
+    # slider, green "Craft Selected", red "Craft 1". The slider is dragged to
+    # its far end and Craft Selected clicked, so a stack goes in one pass.
+    craft_slider: list[int] = field(default_factory=list)        # the slider's knob
+    craft_slider_end: list[int] = field(default_factory=list)    # the track's right end
+    craft_all: list[int] = field(default_factory=list)           # anchor for Craft Selected
     dialog_end: list[int] = field(default_factory=list)          # the "..." bubble
     # that stays after the X. Until it is clicked the conversation is still
     # open: no HUD, no prompt, and T does nothing.
@@ -142,18 +157,21 @@ class BaitConfig(PointMap):
     shop_confirm: list[int] = field(default_factory=list)
     shop_cancel: list[int] = field(default_factory=list)         # optional
 
-    # Walk: only if the fishing spot is outside Sen's prompt range. The bot
-    # holds walk_keys until his T prompt shows on screen, and afterwards holds
-    # return_keys for the same time it took - so the fishing spot is re-derived
-    # from a fixed point every pass instead of drifting a little more each one.
-    # GPO's Auto Run must be OFF (Menu > Settings): it turns a held key into a
-    # sprint partway through, so the copied time overshoots into the sea.
+    # Walk: only if the fishing spot is outside Sen's prompt range. Both legs
+    # are steered by what is on screen. Going in, walk_keys are held until his
+    # T prompt shows. Coming back, return_keys are held until his floating
+    # "Blacksmith Sen" nametag is back where it sits when you stand at the
+    # fishing spot: the camera never turns on WASD, so where that label is on
+    # screen is where you are. A timer cannot know that; a sprint, a bump or
+    # a laggy frame all end in the sea. Overshoot is trimmed with short taps.
     walk_to_sen: bool = False
     walk_keys: str = "d"                   # "w+d" for a diagonal
     return_keys: str = "a"
-    max_walk: float = 4.0
-    return_scale: float = 1.0              # >1 if it stops short on the way back
+    max_walk: float = 4.0                  # a leg longer than this is a fault
     prompt_template: str = "templates/prompt_t.png"   # the white T badge, snipped
+    tag_template: str = "templates/sen_tag.png"       # his nametag, snipped from the spot
+    home_tag: list[int] = field(default_factory=list) # where it sat when snipped
+    home_tolerance: int = 12               # px: close enough to call it home
 
 
 @dataclass

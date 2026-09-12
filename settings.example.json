@@ -28,6 +28,9 @@
     "equip_rod": true,
     "rod_key": "1",
     "cast_hold_duration": 0.05,
+    "cast_point": [],
+    "equip_every_cast": false,
+    "alt_slot_key": "2",
     "post_cast_delay": 0.7,
     "recast_timeout": 25.0,
     "loot_delay": 0.15,
@@ -47,6 +50,7 @@
     "every_n_catches": 25,
     "menu_delay": 0.5,
     "bait_select": [],
+    "select_every_cast": false,
     "talk_key": "t",
     "dialog_yes": [],
     "menu_region": {
@@ -57,6 +61,7 @@
     },
     "craft_recipe": [],
     "craft_add": [],
+    "craft_pick": [],
     "craft_counter_region": {
       "x1": 0,
       "y1": 0,
@@ -65,6 +70,10 @@
     },
     "craft_button": [],
     "craft_close": [],
+    "craft_slider": [],
+    "craft_slider_end": [],
+    "craft_all": [],
+    "dialog_end": [],
     "shop_key": "t",
     "shop_hold": 1.0,
     "buy_amount": 100,
@@ -75,8 +84,10 @@
     "walk_keys": "d",
     "return_keys": "a",
     "max_walk": 4.0,
-    "return_scale": 1.0,
-    "prompt_template": "templates/prompt_t.png"
+    "prompt_template": "templates/prompt_t.png",
+    "tag_template": "templates/sen_tag.png",
+    "home_tag": [],
+    "home_tolerance": 12
   },
   "fruit": {
     "auto_store": false,

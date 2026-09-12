@@ -112,6 +112,15 @@ def main() -> int:
         read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 8)
         print("set_config ok - one bait mode at a time")
 
+        # A test cast needs a Roblox window; without one it is a clean refusal,
+        # with one it echoes the hold it used. Either way it must answer.
+        send(proc, id=9, cmd="test_cast")
+        cast = read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 9)
+        assert cast["ok"] or "no Roblox window" in cast.get("error", ""), cast
+        if cast["ok"]:
+            assert cast["result"]["hold"] == hello["config"]["fishing"]["cast_hold_duration"]
+        print("test_cast ok -", "cast" if cast["ok"] else "refused, no window")
+
         send(proc, id=5, cmd="nonsense")
         bad = read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 5)
         assert bad["ok"] is False and "unknown command" in bad["error"], bad

@@ -107,6 +107,27 @@ window as one self-contained file, and writes `dist\GPO Fishing Macro Setup
 4. Watch the dashboard. The reel panel shows the on-the-fish percentage for
    the current fight; tune **Bar lead** in Settings against that number.
 
+## Casting
+
+Holding the button longer casts farther, up to a cap GPO never shows. **Cast
+hold** in Settings is the power; there is no meter to read, so the Calibration
+tab's **Cast** card has a **Test cast** button: cast once with the current
+hold, watch where the bobber lands, change the hold, cast again. **Pick cast
+point** stores a spot over the water and the cursor moves there before every
+cast, so a menu, an upkeep pass or your own hand cannot leave the line aimed
+at the dock. Together they make the landing spot repeatable, which is what a
+scan region wants.
+
+Two per-cast options, both off by default, both borrowed from K's macro:
+*Re-equip rod before every cast* switches to another slot and back so a
+dialog that took the rod away heals in one cast, and *Reselect bait before
+every cast* clicks your bait's row while the rod is held. About a second per
+cast between them.
+
+Settings can be **exported** to a file (without the webhook URL, which is a
+credential), **imported** over the current ones, or found with **Open folder**,
+all from the bar at the bottom of Settings.
+
 ## How the reel control works
 
 Verified against in-game screenshots and the GPO wiki's fishing guide:
@@ -208,7 +229,9 @@ nothing is a cast:
    eligible fish opens beside the menu. Click its first row and the counter
    turns **green** (two-fish recipes go red at `1/2` and it adds another).
    Click the green **CRAFT** slab, searched for near its anchor like the
-   Store Fruit prompt. The counter going red again is one bait made.
+   Store Fruit prompt. The counter going red again is one bait made. With
+   two or more of the same fish, CRAFT asks how many instead: the slider is
+   dragged to its end and **Craft Selected** takes the whole stack at once.
 3. Repeat until **+** opens nothing and the game says *"You dont have any
    eligible materials to add!"*. That is the stop; nothing is counted.
 4. Close with the red X, click the **...** bubble Sen leaves at the bottom
@@ -224,20 +247,24 @@ dialog is not there.
 **Calibrate crafting** on the Calibration tab walks you through it, because
 the points are never all on screen at once: it tells you how to get the game
 into each state (dialogue up, menu open with your bait selected, fish list
-open, the bubble after closing, rod held), waits for OK, then has you click
-only what that screen shows. Buying is the barrel's quantity box and Confirm.
+open, the stack dialog if you have one, the bubble after closing, rod held),
+waits for OK, then has you click only what that screen shows. Buying is the barrel's quantity box and Confirm.
 
 **Walking.** If your fishing spot is outside Sen's prompt range, turn on *Walk
-to Sen and back* and snip the white `T` badge from his prompt. The macro holds
-the walk keys until that badge shows on screen, crafts, then holds the return
-keys for exactly as long as the walk in took. The leg in always ends at the
-same place, so the fishing spot is re-derived from a fixed point each pass
-rather than drifting. Two game settings first: turn GPO's **Auto Run off**
-(Menu > Settings), or the return leg switches to a sprint partway and carries
-you off the dock into the sea; and set Roblox's camera to **Classic**, since
-Follow mode turns a held `D` into a curve. If five casts in a row get no bite after a
-walk, the bot stops and says so rather than fishing the dock all night; tune
-*Return leg scale* and restart.
+to Sen and back* and snip two things: the white `T` badge from his prompt
+(standing at him), and his floating **Blacksmith Sen** name (standing exactly
+where you fish from). Both legs then stop on what is on screen, never on a
+timer. Going in, the walk keys are held until the badge shows. Coming back,
+the return keys are held until his name is back where it sat when you snipped
+it: the camera never turns on WASD, so where that label is on screen is where
+you are. Any overshoot is trimmed with short taps sized by the speed just
+measured. A timer only lands right if both legs run at one speed, and a
+sprint, a bump from another player or a laggy frame all put a timed leg in
+the sea; a measured stop does not care. If the name is ever out of sight the
+bot stops on the dock and says so rather than walk blind. Set Roblox's camera
+to **Classic** first; Follow mode turns a held `D` into a curve. If five casts
+in a row get no bite after a walk, the bot stops and says so rather than
+fishing the dock all night.
 
 ## Console mode
 

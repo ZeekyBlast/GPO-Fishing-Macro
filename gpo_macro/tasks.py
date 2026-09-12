@@ -329,6 +329,12 @@ def _attempt_store(input_ctl: InputController, grabber: ScreenGrabber,
 
 CRAFT_CEILING = 300         # the bait stack cap; no loop needs more
 PROMPT_MATCH = 0.85         # the white T badge is high-contrast; matches score high
+TAG_MATCH = 0.80            # his nametag: white text on the world, same size at any range
+
+
+class WalkError(RuntimeError):
+    """The character is somewhere the bot cannot see its way back from.
+    Fishing from there would cast into the dock all night, so the bot stops."""
 
 
 def _missing(cfg: BaitConfig, names: list[str]) -> list[str]:
@@ -353,7 +359,7 @@ def upkeep_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Win
                             "Pick one in Settings.")
         return
     if cfg.auto_craft:
-        with walked_to_sen(input_ctl, grabber, cfg, publish) as there:
+        with walked_to_sen(input_ctl, grabber, tracker, cfg, publish) as there:
             if there:
                 craft_bait(input_ctl, grabber, tracker, cfg, banner, publish)
     elif cfg.auto_buy:
@@ -428,8 +434,9 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
         return 0
 
     publish("info", "crafting bait at Sen")
-    crafted = 0
+    crafted = stacks = 0
     out_of_fish = False
+    stack_ready = bool(cfg.craft_slider and cfg.craft_slider_end and cfg.craft_all)
     try:
         while crafted < CRAFT_CEILING:
             # Fill the slot. + opens a list of eligible fish beside the menu;
@@ -461,8 +468,27 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
                 publish("warn", "CRAFT button not found near its anchor")
                 break
             input_ctl.click(craft_at, delay_after=0.1)
-            if not counter_is("red", 2.5):
-                publish("warn", "CRAFT click had no effect - stopping")
+            # Two or more of one fish and CRAFT asks how many instead of
+            # crafting: a slider with Craft Selected beside it. Drag the knob
+            # to the end and take the whole stack in one go.
+            done = False
+            deadline = time.monotonic() + 2.5
+            while time.monotonic() < deadline:
+                if counter_is("red", 0.05):
+                    done = True
+                    break
+                if stack_ready:
+                    ask = wait_for_green(grabber, tracker, cfg.craft_all, 80, 30, timeout=0.05)
+                    if ask is not None:
+                        input_ctl.drag(cfg.craft_slider, cfg.craft_slider_end, delay_after=0.2)
+                        input_ctl.click(ask, delay_after=0.1)
+                        done = counter_is("red", 2.5)
+                        stacks += 1
+                        break
+            if not done:
+                publish("warn", "CRAFT click had no effect - stopping"
+                                + ("" if stack_ready else " (a stack of one fish needs the "
+                                   "quantity dialog calibrated)"))
                 break
             crafted += 1
             time.sleep(settle)
@@ -471,7 +497,9 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
         _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
 
     if crafted:
-        publish("info", f"crafted {crafted} bait" + (", fish used up" if out_of_fish else ""))
+        what = (f"crafted {crafted} bait" if not stacks
+                else f"crafted {crafted - stacks} bait and {stacks} whole stack(s)")
+        publish("info", what + (", fish used up" if out_of_fish else ""))
     elif out_of_fish:
         publish("info", "no fish to craft bait from")
     else:
@@ -554,8 +582,9 @@ def select_bait(input_ctl: InputController, cfg: BaitConfig, publish: Publish) -
     input_ctl.click(cfg.bait_select, delay_after=0.2)
 
 
-def prompt_visible(grabber: ScreenGrabber, template: np.ndarray) -> bool:
-    frame = grabber.grab_full()
+def prompt_visible(grabber: ScreenGrabber, tracker: WindowTracker,
+                   template: np.ndarray) -> bool:
+    frame = grabber.grab_client(tracker)
     th, tw = template.shape[:2]
     if frame.shape[0] < th or frame.shape[1] < tw:
         return False
@@ -563,40 +592,71 @@ def prompt_visible(grabber: ScreenGrabber, template: np.ndarray) -> bool:
     return score >= PROMPT_MATCH
 
 
-@contextmanager
-def walked_to_sen(input_ctl: InputController, grabber: ScreenGrabber, cfg: BaitConfig,
-                  publish: Publish) -> Iterator[bool]:
-    """Walk until Sen's T badge is on screen; walk back on the way out.
+def tag_position(grabber: ScreenGrabber, tracker: WindowTracker,
+                 template: np.ndarray) -> Optional[tuple[int, int]]:
+    """Centre of Sen's nametag on screen, window-relative, or None.
 
-    The leg in is closed-loop, so it always ends at the same place: where the
-    prompt first shows. The leg back copies the time it took. That re-derives
-    the fishing spot from a fixed point every pass, instead of a fixed timing
-    that drifts a little further each one. Walking back happens even if the
-    prompt never showed, and even if the craft raised.
+    The label floats over his head, always faces the camera and draws at one
+    size whatever the range, and the camera does not turn on WASD. So its
+    place on screen is a readout of where the character stands relative to
+    him - the position sensor the walk home steers by.
+    """
+    frame = grabber.grab_client(tracker)
+    th, tw = template.shape[:2]
+    if frame.shape[0] < th or frame.shape[1] < tw:
+        return None
+    score, (x, y) = match_template(frame, template)
+    if score < TAG_MATCH:
+        return None
+    return x + tw // 2, y + th // 2
+
+
+def _progress(start: tuple[int, int], home: list[int], pos: tuple[int, int]) -> float:
+    """How far along the start->home line `pos` is: 0 at start, 1 at home, >1 past it."""
+    dx, dy = home[0] - start[0], home[1] - start[1]
+    length_sq = dx * dx + dy * dy
+    if length_sq == 0:
+        return 1.0
+    return ((pos[0] - start[0]) * dx + (pos[1] - start[1]) * dy) / length_sq
+
+
+def _dist(a, b) -> float:
+    return float(((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5)
+
+
+@contextmanager
+def walked_to_sen(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+                  cfg: BaitConfig, publish: Publish) -> Iterator[bool]:
+    """Walk until Sen's T badge is on screen; steer back by his nametag.
+
+    Both legs stop on a measurement, never a timer. In: the prompt appears.
+    Back: his nametag is where it sits when you stand at the fishing spot,
+    then any overshoot is trimmed with taps whose length comes from the speed
+    just measured. A timer only lands right if both legs run at one speed,
+    and a sprint, a bump from another player or a laggy frame all put a
+    timed leg in the sea. Losing sight of the label is a WalkError: the bot
+    stops on the dock rather than walk blind.
     """
     if not cfg.walk_to_sen:
         yield True
         return
-    template = _load_template(cfg.prompt_template)
-    if template is None:
-        _warn_once(publish, "walk to Sen is on but the prompt badge is not snipped "
-                            "(Calibration tab)")
+    badge = _load_template(cfg.prompt_template)
+    tag = _load_template(cfg.tag_template)
+    missing = [name for name, ok in (("prompt badge", badge is not None),
+                                     ("nametag", tag is not None),
+                                     ("home position", bool(cfg.home_tag))) if not ok]
+    if missing:
+        _warn_once(publish, "walk to Sen is on but not calibrated: "
+                            f"{', '.join(missing)} (Calibration tab)")
         yield False
         return
 
-    # The return leg copies the time the leg in took, which only lands on the
-    # same spot if both legs move at the same speed. GPO's Auto Run breaks
-    # that: it switches to a sprint partway through a held direction, so a
-    # short leg walks and a long one runs, and the copy overshoots - off the
-    # dock and into the sea.
-    _warn_once(publish, "walking to Sen: GPO's Auto Run must be OFF (Menu > Settings), "
-                        "or the return leg overshoots into the sea")
     arrived = False
     started = time.monotonic()
     input_ctl.press_keys(cfg.walk_keys)
     try:
         while time.monotonic() - started < max(0.5, cfg.max_walk):
-            if prompt_visible(grabber, template):
+            if prompt_visible(grabber, tracker, badge):
                 arrived = True
                 break
             time.sleep(0.1)
@@ -610,9 +670,58 @@ def walked_to_sen(input_ctl: InputController, grabber: ScreenGrabber, cfg: BaitC
     try:
         yield arrived
     finally:
-        input_ctl.hold_key(cfg.return_keys, took * max(0.1, cfg.return_scale), delay_after=0.3)
-        if arrived and prompt_visible(grabber, template):
-            publish("warn", "still at Sen after walking back - check the return keys")
+        _walk_home(input_ctl, grabber, tracker, cfg, tag, publish)
+
+
+def _walk_home(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+               cfg: BaitConfig, tag: np.ndarray, publish: Publish) -> None:
+    home = cfg.home_tag
+    tol = max(2, cfg.home_tolerance)
+    start = tag_position(grabber, tracker, tag)
+    if start is None:
+        raise WalkError("cannot see Sen's nametag from here - not walking back blind")
+    if _dist(start, home) <= tol:
+        return
+
+    # The leg: hold until the label reaches home or passes it.
+    began = time.monotonic()
+    last_seen = began
+    pos = start
+    input_ctl.press_keys(cfg.return_keys)
+    try:
+        while True:
+            now = time.monotonic()
+            if now - began > max(0.5, cfg.max_walk):
+                raise WalkError(f"walked back for {cfg.max_walk:.0f}s and never reached the spot")
+            seen = tag_position(grabber, tracker, tag)
+            if seen is None:
+                if now - last_seen > 1.5:
+                    raise WalkError("lost sight of Sen's nametag on the way back")
+                time.sleep(0.05)
+                continue
+            pos, last_seen = seen, now
+            if _dist(pos, home) <= tol or _progress(start, home, pos) >= 1.0:
+                break
+            time.sleep(0.05)
+    finally:
+        input_ctl.release_keys(cfg.return_keys)
+    speed = max(1.0, _dist(start, pos) / max(0.05, time.monotonic() - began))   # px/s, measured
+
+    # Trim: momentum and frame timing leave it a little past or short. Tap
+    # toward home, sized by the speed just measured, and look again.
+    for _ in range(3):
+        time.sleep(0.3)                                    # let momentum die
+        seen = tag_position(grabber, tracker, tag)
+        if seen is None:
+            raise WalkError("lost sight of Sen's nametag while trimming the stop")
+        error = _dist(seen, home)
+        if error <= tol:
+            break
+        overshot = _progress(start, home, seen) > 1.0
+        input_ctl.hold_key(cfg.walk_keys if overshot else cfg.return_keys,
+                           min(0.8, error / speed), delay_after=0.0)
+    else:
+        publish("warn", f"stopped {error:.0f}px from the fishing spot after trimming")
 
 
 def reset_template_cache() -> None:

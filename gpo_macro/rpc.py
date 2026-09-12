@@ -29,9 +29,10 @@ from . import APP_NAME, __version__
 from . import form
 from . import theme
 from . import vision
-from .capture import ScreenGrabber, WindowTracker, client_size
+from .capture import ScreenGrabber, WindowTracker, client_size, focus_window
 from .config import AppConfig, ConfigStore, Region, dict_into_dataclass
-from .fisher import FishingBot, State
+from .fisher import FishingBot, State, prepare_cast
+from .input import InputController
 from .hotkeys import HotkeyManager
 from .notify import DiscordNotifier, valid_url
 from .sound_alert import SoundListener
@@ -329,6 +330,25 @@ class Engine:
                 "region": ({"x1": region.x1, "y1": region.y1,
                             "x2": region.x2, "y2": region.y2}
                            if result.region is not None else None)}
+
+    def cmd_test_cast(self, _req) -> dict:
+        """One cast with the configured hold and aim, so the hold can be tuned
+        by watching where the bobber lands. GPO has no charge meter to read."""
+        if self.bot and self.bot.is_alive():
+            raise ValueError("stop the bot first")
+        info = self._tracker.refresh()
+        if info is None:
+            raise ValueError("no Roblox window")
+        f = self.cfg.fishing
+        input_ctl = InputController(self._tracker, jitter=0.0)
+        focus_window(info.hwnd)
+        time.sleep(0.3)
+        if f.equip_rod and not f.equip_every_cast:
+            input_ctl.press_key(f.rod_key, delay_after=0.3)
+        prepare_cast(input_ctl, self.cfg, lambda *a, **k: None)
+        input_ctl.cast(f.cast_hold_duration)
+        return {"hold": f.cast_hold_duration, "aimed": bool(f.cast_point),
+                "point": list(f.cast_point)}
 
     def cmd_test_detection(self, _req) -> dict:
         import cv2

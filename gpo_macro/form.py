@@ -19,7 +19,9 @@ FORM: list[tuple[str, str, str, str, str]] = [
     ("Controller", "controller", "invert", "Invert raise/drop", "bool"),
     ("Fishing", "fishing", "equip_rod", "Equip rod before casting", "bool"),
     ("Fishing", "fishing", "rod_key", "Rod hotkey", "str"),
-    ("Fishing", "fishing", "cast_hold_duration", "Cast hold (s)", "float"),
+    ("Fishing", "fishing", "cast_hold_duration", "Cast hold (s) - longer casts farther", "float"),
+    ("Fishing", "fishing", "equip_every_cast", "Re-equip rod before every cast", "bool"),
+    ("Fishing", "fishing", "alt_slot_key", "Slot to switch through", "str"),
     ("Fishing", "fishing", "post_cast_delay", "Post-cast settle (s)", "float"),
     ("Fishing", "fishing", "recast_timeout", "Recast timeout (s)", "float"),
     ("Fishing", "fishing", "loot_delay", "Loot delay (s)", "float"),
@@ -29,6 +31,7 @@ FORM: list[tuple[str, str, str, str, str]] = [
     ("Bait", "bait", "auto_craft", "Auto-craft bait at Blacksmith Sen", "bool"),
     ("Bait", "bait", "auto_buy", "Auto-buy common bait at the barrel", "bool"),
     ("Bait", "bait", "every_n_catches", "Upkeep every N catches", "int"),
+    ("Bait", "bait", "select_every_cast", "Reselect bait before every cast", "bool"),
     ("Bait", "bait", "menu_delay", "Menu settle time (s)", "float"),
     ("Bait", "bait", "talk_key", "Sen's prompt key", "str"),
     ("Bait", "bait", "shop_key", "Barrel's prompt key", "str"),
@@ -38,7 +41,7 @@ FORM: list[tuple[str, str, str, str, str]] = [
     ("Bait", "bait", "walk_keys", "Walk keys (e.g. d, or w+d)", "str"),
     ("Bait", "bait", "return_keys", "Return keys", "str"),
     ("Bait", "bait", "max_walk", "Give up walking after (s)", "float"),
-    ("Bait", "bait", "return_scale", "Return leg scale", "float"),
+    ("Bait", "bait", "home_tolerance", "Home tolerance (px)", "int"),
     ("Fruit", "fruit", "auto_store", "Auto-store devil fruits", "bool"),
     ("Fruit", "fruit", "match_threshold", "Icon match threshold", "float"),
     ("Fruit", "fruit", "store_wait", "Wait for banner (s)", "float"),
@@ -73,16 +76,19 @@ SECTION_NOTES: dict[str, str] = {
     "Controller": "Bar lead is the brake. Raise it if the bar sails past the fish, lower "
                   "it if it stalls short. Watch the on-the-fish percentage on the "
                   "dashboard while you change it.",
-    "Fishing": "Timings around the cast. Jitter randomises every delay by this fraction.",
+    "Fishing": "Timings around the cast. Jitter randomises every delay by this fraction. "
+               "Cast hold is the power: GPO shows no meter, so pick a point over the water "
+               "on the Calibration tab and use Test cast to see where it lands. Re-equipping "
+               "each cast costs about a second and heals a rod a dialog took away.",
     "Bait": "Work in progress: auto-craft and auto-buy run but are not yet proven over a "
             "long session - watch the first few passes. "
             "Craft or buy, not both: switching one on switches the other off. Crafting "
             "is the only source of Rare and Legendary bait (two rare fish or one legendary "
             "fish each) and it crafts until the fish run out. Both need their points from "
             "the Calibration tab. Walking is only for a fishing spot outside Sen's prompt "
-            "range. Before using it: turn GPO's Auto Run OFF (Menu > Settings), or the "
-            "return leg sprints past the spot and into the sea, and set the camera to "
-            "Classic, since Follow mode turns a straight walk into a curve.",
+            "range. It steers by his floating nametag - snip it from the fishing spot - "
+            "and needs the camera on Classic, since Follow mode turns a straight walk "
+            "into a curve.",
     "Fruit": "Needs the fruit icon, hotbar row, banner strip and store button from "
              "the Calibration tab. GPO only lets you own one of each fruit, so a "
              "refusal is normal and the duplicate is dropped, which destroys it. "
