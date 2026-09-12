@@ -404,7 +404,10 @@ class SenScreen:
         if region == box_around(cfg.dialog_yes):
             return np.full((48, 48, 3), (30, 30, 30) if self.dialog else PLANKS, np.uint8)
         if region == box_around(cfg.dialog_end):
-            return np.full((48, 48, 3), (30, 30, 30) if self.talking else PLANKS, np.uint8)
+            frame = np.full((48, 48, 3), (30, 30, 30) if self.talking else PLANKS, np.uint8)
+            if self.talking:
+                frame[22:26, 12:36] = (240, 240, 240)          # the bubble's three dots
+            return frame
         if region == cfg.menu_region:
             return np.full((region.height(), region.width(), 3),
                            (25, 25, 25) if self.menu else PLANKS, np.uint8)

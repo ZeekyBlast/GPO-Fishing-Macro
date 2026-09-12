@@ -125,6 +125,13 @@ def green_fraction(frame_bgr: np.ndarray) -> float:
     return float(((g > 120) & (g > r + 50) & (g > b + 50)).mean())
 
 
+def white_fraction(frame_bgr: np.ndarray) -> float:
+    """Fraction of near-white pixels - GUI text on a dark slab."""
+    if frame_bgr.size == 0:
+        return 0.0
+    return float((frame_bgr.min(axis=2) > 200).mean())
+
+
 def changed_fraction(before_bgr: np.ndarray, after_bgr: np.ndarray) -> float:
     """Fraction of pixels that moved between two frames of the same region."""
     if before_bgr.shape != after_bgr.shape or before_bgr.size == 0:
@@ -396,12 +403,11 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
         publish("warn", "Sen's dialogue did not appear - stand at Blacksmith Sen, "
                         f"or check the talk key ({cfg.talk_key})")
         return 0
-    # The dialogue tweens in, so give it a beat. Yes wants a double-click: a
-    # single one is swallowed every time, a second one a moment later takes.
-    # One retry on top before calling it a failure.
+    # The dialogue tweens in, so give it a beat; one retry before calling it
+    # a failure.
     time.sleep(settle)
     for _ in range(2):
-        input_ctl.click(cfg.dialog_yes, delay_after=settle, double=True)
+        input_ctl.click(cfg.dialog_yes, delay_after=settle)
         if wait_changed(grabber, tracker, cfg.menu_region, before_menu,
                         timeout=2.5, min_change=0.15):
             break
@@ -491,9 +497,7 @@ def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
                     ask = wait_for_green(grabber, tracker, cfg.craft_all, 80, 30, timeout=0.05)
                     if ask is not None:
                         input_ctl.drag(cfg.craft_slider, cfg.craft_slider_end, delay_after=0.2)
-                        # Like Yes, a button on a panel that just opened eats
-                        # its first click; the second one takes.
-                        input_ctl.click(ask, delay_after=0.1, double=True)
+                        input_ctl.click(ask, delay_after=0.1)
                         done = counter_is("red", 2.5)
                         stacks += 1
                         break
@@ -536,10 +540,22 @@ def _close_menu(input_ctl: InputController, grabber: ScreenGrabber, tracker: Win
 def _end_conversation(input_ctl: InputController, grabber: ScreenGrabber,
                       tracker: WindowTracker, cfg: BaitConfig, before: np.ndarray,
                       settle: float) -> None:
-    """Click the "..." bubble Sen leaves behind, but only if it is there:
-    with nothing under the cursor that click is a cast at the dock."""
-    if wait_changed(grabber, tracker, box_around(cfg.dialog_end), before, timeout=1.0):
+    """Click the "..." bubble Sen leaves behind, but only while it is there:
+    with nothing under the cursor that click is a cast at the dock.
+
+    The bubble is a dark slab on dark planks, so "did the region change" is
+    blind to it; its three white dots are not. Presence is white pixels in
+    the box, and each click is checked the same way before another.
+    """
+    end_box = box_around(cfg.dialog_end)
+    for _ in range(3):
+        try:
+            if white_fraction(grabber.grab_region(tracker, end_box)) < 0.01:
+                return
+        except Exception:
+            return
         input_ctl.click(cfg.dialog_end, delay_after=settle)
+        time.sleep(0.4)
 
 
 def buy_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,

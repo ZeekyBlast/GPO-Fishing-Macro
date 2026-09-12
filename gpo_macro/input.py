@@ -87,18 +87,7 @@ class InputController:
         self.mouse.position = (float(sx), float(sy))
 
     def click(self, point: Sequence[int], delay_after: float = 0.1, double: bool = False) -> None:
-        px, py = int(point[0]) + random.randint(-2, 2), int(point[1]) + random.randint(-2, 2)
-        # Roblox GUI buttons want to see the cursor arrive, then hover a few
-        # frames, then a press that lasts longer than a frame. Measured against
-        # Sen's menu: a teleport with a 50 ms hover and 30 ms press was ignored,
-        # a short glide in with 400/120 took every time. Menus are not on the
-        # hot path, so the extra half second costs nothing.
-        sx, sy = self.mouse.position
-        ox, oy = self.tracker.origin
-        for step in range(1, 7):
-            self.move_to(int((sx - ox) + (px - (sx - ox)) * step / 6),
-                         int((sy - oy) + (py - (sy - oy)) * step / 6))
-            time.sleep(0.015)
+        self._approach(int(point[0]) + random.randint(-2, 2), int(point[1]) + random.randint(-2, 2))
         self._jittered_delay(0.4)
         for n in range(2 if double else 1):
             if n:
@@ -108,9 +97,35 @@ class InputController:
             self.mouse.release(Button.left)
         self._jittered_delay(delay_after)
 
+    def _approach(self, x: int, y: int) -> None:
+        """Arrive at a window-relative point the way a hand would.
+
+        Roblox reads the mouse through raw input. SetCursorPos - the absolute
+        move every other method here uses - parks the cursor without an
+        input event, so the GUI never sees it arrive: no hover, no pointer
+        hand, and the first click is spent waking the button up instead of
+        pressing it. So the cursor is parked short of the target and walked
+        the last stretch with relative mouse_event moves, which are real
+        events. Windows scales those by pointer acceleration, so the walk is
+        closed-loop on the position read back rather than a fixed count.
+        """
+        import ctypes
+        user32 = ctypes.windll.user32
+        sx, sy = self.tracker.to_screen(x, y)
+        self.failsafe_check()
+        self.mouse.position = (float(sx - 48), float(sy))
+        time.sleep(0.05)
+        for _ in range(40):
+            cx, cy = self.mouse.position
+            dx, dy = sx - cx, sy - cy
+            if abs(dx) <= 1 and abs(dy) <= 1:
+                break
+            user32.mouse_event(0x0001, int(max(-6, min(6, dx))), int(max(-6, min(6, dy))), 0, 0)
+            time.sleep(0.015)
+
     def drag(self, start: Sequence[int], end: Sequence[int], delay_after: float = 0.1) -> None:
         """Press on `start`, glide to `end`, release - a slider knob."""
-        self.move_to(int(start[0]), int(start[1]))
+        self._approach(int(start[0]), int(start[1]))
         self._jittered_delay(0.3)
         self.mouse.press(Button.left)
         time.sleep(0.1)
