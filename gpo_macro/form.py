@@ -80,8 +80,10 @@ SECTION_NOTES: dict[str, str] = {
                "Cast hold is the power: GPO shows no meter, so pick a point over the water "
                "on the Calibration tab and use Test cast to see where it lands. Re-equipping "
                "each cast costs about a second and heals a rod a dialog took away.",
-    "Bait": "Work in progress: auto-craft and auto-buy run but are not yet proven over a "
-            "long session - watch the first few passes. "
+    "Bait": "Stand at the Trading Hub dock, beside Blacksmith Sen, where his prompt shows "
+            "and the water is in reach: that is the only place auto-craft is proven, and "
+            "walking to him from anywhere else does not work yet - leave Walk to Sen off. "
+            "Auto-buy is calibratable but untested. "
             "Craft or buy, not both: switching one on switches the other off. Crafting "
             "is the only source of Rare and Legendary bait (two rare fish or one legendary "
             "fish each) and it crafts until the fish run out. Both need their points from "

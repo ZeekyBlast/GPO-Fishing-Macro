@@ -207,12 +207,14 @@ button**, which anchors the search for it.
 
 ### Bait upkeep
 
-> **Work in progress.** Auto-craft and auto-buy are calibratable and run, but
-> they have not been proven across a long session yet. Expect misses; watch the
-> first few passes, and leave both off if you are not around to step in.
+> **Stand at the Trading Hub dock.** Auto-craft works from the fishing spot
+> beside Blacksmith Sen on the Trading Hub dock, where his prompt shows and the
+> water is in reach, so the macro never has to move. That is the only place it
+> is proven. **Walking to Sen from anywhere else does not work yet** - leave
+> *Walk to Sen and back* off. Auto-buy is calibratable but untested.
 
 Rare and Legendary bait are craft-only: two rare fish or one legendary fish
-each, at Blacksmith Sen on the Shells Town dock. A Devil Fruit Rod session
+each, at Blacksmith Sen. A Devil Fruit Rod session
 lives on them, and every fruit fished up is a legendary fish that did not come
 back as bait, so the stack drains and has to be topped up from the catch.
 Common bait is bought at the bait barrel. **Craft or buy, not both**: switching
@@ -250,7 +252,9 @@ into each state (dialogue up, menu open with your bait selected, fish list
 open, the stack dialog if you have one, the bubble after closing, rod held),
 waits for OK, then has you click only what that screen shows. Buying is the barrel's quantity box and Confirm.
 
-**Walking.** If your fishing spot is outside Sen's prompt range, turn on *Walk
+**Walking - not working yet, leave it off.** The design below is built and
+unit-tested but has not landed the character back on the spot in the game;
+stand at the Trading Hub dock instead. When it does work: turn on *Walk
 to Sen and back* and snip two things: the white `T` badge from his prompt
 (standing at him), and his floating **Blacksmith Sen** name (standing exactly
 where you fish from). Both legs then stop on what is on screen, never on a
