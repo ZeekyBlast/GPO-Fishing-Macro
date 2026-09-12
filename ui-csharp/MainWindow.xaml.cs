@@ -34,6 +34,8 @@ public partial class MainWindow : Window
     private bool _closing;
     private bool _scrollQueued;
     private bool _checkedForUpdates;
+    private bool _setupDecided;
+    private readonly List<ListBox> _railLogs = new();
 
     public MainWindow()
     {
@@ -115,7 +117,7 @@ public partial class MainWindow : Window
             _scrollQueued = false;
             if (_model.Log.Count == 0) return;
             LogList.ScrollIntoView(_model.Log[^1]);
-            RailLogList.ScrollIntoView(_model.Log[^1]);
+            foreach (var rail in _railLogs) rail.ScrollIntoView(_model.Log[^1]);
         }));
     }
 
@@ -246,6 +248,20 @@ public partial class MainWindow : Window
             controller.GetProperty("fish_lead").GetDouble());
         _model.RefreshDirty();
         RefreshCalibrationReadouts();
+
+        // The setup runs once: on the first hello without the flag, and never
+        // again on a later config reload.
+        if (!_setupDecided)
+        {
+            _setupDecided = true;
+            var done = ui.TryGetProperty("first_run_complete", out var flag) && flag.GetBoolean();
+            if (!done)
+            {
+                _model.SetupStep = 1;
+                _model.SetupActive = true;
+                _model.AddLog("info", "setup opened - six steps, about two minutes");
+            }
+        }
 
         // Once per launch, and only if the setting allows it.
         if (!_checkedForUpdates
@@ -575,6 +591,52 @@ public partial class MainWindow : Window
                 _model.Region.IsOpen = true;
                 break;
         }
+    }
+
+    // ------------------------------------------------------------------ setup
+
+    /// <summary>Each proof rail's log follows the tail like the dashboard's.</summary>
+    private void RailLog_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is ListBox list && !_railLogs.Contains(list)) _railLogs.Add(list);
+    }
+
+    private void SetupNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.SetupStep == 6) _ = FinishSetupAsync(skipped: false);
+        else
+        {
+            if (_model.SetupStep == 1) _model.AddLog("info", "risk acknowledged");
+            _model.SetupStep++;
+        }
+    }
+
+    private void SetupBack_Click(object sender, RoutedEventArgs e) => _model.SetupStep--;
+
+    private void SetupSkip_Click(object sender, RoutedEventArgs e) => _ = FinishSetupAsync(skipped: true);
+
+    private void SetupPip_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is Reading pip)
+            _model.SetupStep = Array.IndexOf(_model.SetupPips, pip) + 1;
+    }
+
+    private void RerunSetup_Click(object sender, RoutedEventArgs e)
+    {
+        _model.SetupStep = 1;
+        _model.SetupActive = true;
+    }
+
+    /// <summary>Skipped or finished, the flag is written either way: the
+    /// dashboard's amber hint carries whatever is still undone.</summary>
+    private async Task FinishSetupAsync(bool skipped)
+    {
+        await PatchAsync("ui", new Dictionary<string, object?> { ["first_run_complete"] = true });
+        _model.SetupActive = false;
+        _model.SelectedScreen = MainViewModel.DashboardScreen;
+        _model.AddLog("info", skipped
+            ? "setup skipped - the Calibration screen has every step"
+            : "setup complete - settings.json written");
     }
 
     private void CalToggle_Click(object sender, RoutedEventArgs e)

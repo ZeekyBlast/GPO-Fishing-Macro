@@ -75,6 +75,18 @@ public sealed class LogEntry
     public Brush Brush { get; }
 }
 
+/// <summary>Visible when the bound value equals the parameter: one
+/// converter for "show this step when SetupStep is 3".</summary>
+public sealed class EqualsToVisibleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        string.Equals(value?.ToString(), parameter?.ToString(), StringComparison.Ordinal)
+            ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>True when the bound value is null; lets a style trigger on an
 /// empty ImageSource without a bool shadow property.</summary>
 public sealed class IsNullConverter : IValueConverter

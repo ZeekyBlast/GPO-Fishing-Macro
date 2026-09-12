@@ -235,6 +235,7 @@
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Foreground" Value="{StaticResource Faint}" />
                             <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource LineStrong}" />
                             <Setter Property="Cursor" Value="Arrow" />
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -270,6 +271,24 @@
         <Setter Property="MinHeight" Value="26" />
         <Setter Property="Padding" Value="11,3" />
         <Setter Property="Margin" Value="0,0,6,6" />
+    </Style>
+
+    <!-- A keycap, for the two hotkeys the setup teaches. -->
+    <Style x:Key="Keycap" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Surface2}" />
+        <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="MinWidth" Value="44" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="KeycapText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeReadout}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
     </Style>
 
     <Style x:Key="Field" TargetType="TextBox">

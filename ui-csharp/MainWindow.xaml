@@ -61,11 +61,93 @@
                                      BoolTemplate="{StaticResource BoolField}"
                                      TextTemplate="{StaticResource TextField}"
                                      SecretTemplate="{StaticResource SecretField}" />
+        <local:EqualsToVisibleConverter x:Key="EqualsToVisible" />
+
+        <!-- The proof rail: what the macro sees. Shared by the calibration
+             screen and the setup steps, so the first thing a new user learns
+             to read is the thing the dashboard shows an hour later. -->
+        <DataTemplate x:Key="ProofRail">
+        <!-- The proof rail: what the macro sees, beside the cards
+             that set it. A sibling column, never scrolls. -->
+        <Border Width="300" Background="{StaticResource Bg}"
+                BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+            <DockPanel Margin="14,14,14,12">
+                <TextBlock DockPanel.Dock="Top" Text="WHAT THE MACRO SEES"
+                           Style="{StaticResource Heading}" Margin="0,0,0,9" />
+                <Border DockPanel.Dock="Top" Style="{StaticResource Panel}">
+                    <ItemsControl ItemsSource="{Binding Rail}" Margin="12,9">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Value}" Margin="0,2"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding Brush}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+
+                <!-- The tail of the log, 11px, so a test's verdict lands
+                     beside its capture. -->
+                <ListBox DockPanel.Dock="Bottom" Loaded="RailLog_Loaded"
+                         Style="{StaticResource LogList}" Height="96"
+                         ItemsSource="{Binding Log}"
+                         VirtualizingPanel.IsVirtualizing="False">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Time}" Width="58"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{StaticResource Faint}" />
+                                <TextBlock Text="{Binding Mark}" Width="14"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding Brush}" />
+                                <TextBlock Text="{Binding Message}" Width="176"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeLabel}"
+                                           Foreground="{Binding Brush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- The last test capture, boxed by the engine itself. -->
+                <Border Style="{StaticResource CaptureWell}" Width="140" Height="262"
+                        BorderBrush="{StaticResource LineStrong}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Tag="{Binding TestCapture}">
+                    <Grid>
+                        <TextBlock Text="{Binding CaptureEmptyNote}" HorizontalAlignment="Center"
+                                   TextAlignment="Center" LineHeight="16"
+                                   VerticalAlignment="Center"
+                                   FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeMeta}"
+                                   Foreground="{StaticResource Faint}" />
+                        <Image Source="{Binding TestCapture}" Stretch="Uniform"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Margin="5" Padding="3,1" CornerRadius="2"
+                                Background="{StaticResource Bg}" Opacity="0.85">
+                            <TextBlock Text="{Binding TestCaptureTag}"
+                                       FontFamily="{StaticResource Mono}" FontSize="9"
+                                       Foreground="{StaticResource Green}" />
+                        </Border>
+                    </Grid>
+                </Border>
+            </DockPanel>
+        </Border>
+        </DataTemplate>
     </Window.Resources>
 
+    <Grid>
     <TabControl Style="{StaticResource SidebarTabControl}"
                 ItemContainerStyle="{StaticResource NavItem}"
-                SelectedIndex="{Binding SelectedScreen, Mode=TwoWay}">
+                SelectedIndex="{Binding SelectedScreen, Mode=TwoWay}"
+                Visibility="{Binding ShellVisible, Converter={StaticResource BoolToVisible}}">
 
         <!-- ============================================ DASHBOARD ========= -->
         <TabItem Header="Dashboard" Tag="{Binding DashboardDot}">
@@ -319,87 +401,22 @@
         <!-- ========================================== CALIBRATION ========= -->
         <TabItem Header="Calibration" Tag="{Binding CalibrationDot}">
             <DockPanel>
-                <!-- The proof rail: what the macro sees, beside the cards
-                     that set it. A sibling column, never scrolls. -->
-                <Border DockPanel.Dock="Right" Width="300" Background="{StaticResource Bg}"
-                        BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
-                    <DockPanel Margin="14,14,14,12">
-                        <TextBlock DockPanel.Dock="Top" Text="WHAT THE MACRO SEES"
-                                   Style="{StaticResource Heading}" Margin="0,0,0,9" />
-                        <Border DockPanel.Dock="Top" Style="{StaticResource Panel}">
-                            <ItemsControl ItemsSource="{Binding Rail}" Margin="12,9">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding Value}" Margin="0,2"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   FontFamily="{StaticResource Mono}"
-                                                   FontSize="{StaticResource SizeLabel}"
-                                                   Foreground="{Binding Brush}" />
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Border>
-
-                        <!-- The tail of the log, 11px, so a test's verdict lands
-                             beside its capture. -->
-                        <ListBox x:Name="RailLogList" DockPanel.Dock="Bottom"
-                                 Style="{StaticResource LogList}" Height="96"
-                                 ItemsSource="{Binding Log}"
-                                 VirtualizingPanel.IsVirtualizing="False">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="{Binding Time}" Width="58"
-                                                   FontFamily="{StaticResource Mono}"
-                                                   FontSize="{StaticResource SizeLabel}"
-                                                   Foreground="{StaticResource Faint}" />
-                                        <TextBlock Text="{Binding Mark}" Width="14"
-                                                   FontFamily="{StaticResource Mono}"
-                                                   FontSize="{StaticResource SizeLabel}"
-                                                   Foreground="{Binding Brush}" />
-                                        <TextBlock Text="{Binding Message}" Width="176"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   FontFamily="{StaticResource Mono}"
-                                                   FontSize="{StaticResource SizeLabel}"
-                                                   Foreground="{Binding Brush}" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-
-                        <!-- The last test capture, boxed by the engine itself. -->
-                        <Border Style="{StaticResource CaptureWell}" Width="140" Height="262"
-                                BorderBrush="{StaticResource LineStrong}"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                                Tag="{Binding TestCapture}">
-                            <Grid>
-                                <TextBlock Text="no test yet" HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           FontFamily="{StaticResource Mono}"
-                                           FontSize="{StaticResource SizeMeta}"
-                                           Foreground="{StaticResource Faint}" />
-                                <Image Source="{Binding TestCapture}" Stretch="Uniform"
-                                       RenderOptions.BitmapScalingMode="HighQuality" />
-                                <Border HorizontalAlignment="Left" VerticalAlignment="Top"
-                                        Margin="5" Padding="3,1" CornerRadius="2"
-                                        Background="{StaticResource Bg}" Opacity="0.85">
-                                    <TextBlock Text="{Binding TestCaptureTag}"
-                                               FontFamily="{StaticResource Mono}" FontSize="9"
-                                               Foreground="{StaticResource Green}" />
-                                </Border>
-                            </Grid>
-                        </Border>
-                    </DockPanel>
-                </Border>
+                <ContentControl DockPanel.Dock="Right" Content="{Binding}"
+                                ContentTemplate="{StaticResource ProofRail}" />
 
                 <DockPanel Margin="14">
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <TextBlock Text="CALIBRATION" FontFamily="{StaticResource Mono}"
-                                   FontWeight="Bold" FontSize="{StaticResource SizeHead}"
-                                   Foreground="{StaticResource Text}" />
-                        <TextBlock Style="{StaticResource Note}" Margin="0,2,0,0"
-                                   Text="{Binding CalibrationSummary}" />
-                    </StackPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Button DockPanel.Dock="Right" Style="{StaticResource TextAction}"
+                                Content="Re-run setup" VerticalAlignment="Top"
+                                Click="RerunSetup_Click" />
+                        <StackPanel>
+                            <TextBlock Text="CALIBRATION" FontFamily="{StaticResource Mono}"
+                                       FontWeight="Bold" FontSize="{StaticResource SizeHead}"
+                                       Foreground="{StaticResource Text}" />
+                            <TextBlock Style="{StaticResource Note}" Margin="0,2,0,0"
+                                       Text="{Binding CalibrationSummary}" />
+                        </StackPanel>
+                    </DockPanel>
                     <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Note}" Margin="0,10,0,0"
                                Text="Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this." />
 
@@ -675,4 +692,158 @@
             </DockPanel>
         </TabItem>
     </TabControl>
+
+    <!-- ============================================== FIRST RUN ========= -->
+    <!-- Six steps over the shell, sharing its engine and every calibration
+         handler. Skippable at any point; skipping writes the flag too. -->
+    <DockPanel Background="{StaticResource Bg}"
+               Visibility="{Binding SetupActive, Converter={StaticResource BoolToVisible}}">
+        <ContentControl DockPanel.Dock="Right" Content="{Binding}"
+                        ContentTemplate="{StaticResource ProofRail}" />
+
+        <DockPanel Margin="18,16,18,14">
+            <TextBlock DockPanel.Dock="Top" Text="{Binding SetupHeading}"
+                       Style="{StaticResource Heading}" Margin="0,0,0,2" />
+            <TextBlock DockPanel.Dock="Top" Text="{Binding SetupNote}"
+                       Style="{StaticResource Note}" Margin="0,0,0,12" />
+
+            <!-- Back / Next, then the pips above them. -->
+            <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource AccentButton}"
+                        Content="{Binding SetupNextLabel}" MinWidth="96"
+                        IsEnabled="{Binding CanSetupNext}" Click="SetupNext_Click" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}"
+                        Content="Back" MinWidth="80" Margin="0,0,6,0"
+                        Foreground="{Binding SetupBackBrush}" Click="SetupBack_Click" />
+                <Rectangle Fill="Transparent" />
+            </DockPanel>
+            <DockPanel DockPanel.Dock="Bottom">
+                <Button DockPanel.Dock="Right" Style="{StaticResource TextAction}"
+                        Content="Skip" Click="SetupSkip_Click" />
+                <ItemsControl ItemsSource="{Binding SetupPips}" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Click="SetupPip_Click" Cursor="Hand" Margin="0,0,8,0"
+                                    AutomationProperties.Name="{Binding Label}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent" Padding="0,6">
+                                            <Rectangle Width="22" Height="3" RadiusX="2" RadiusY="2"
+                                                       Fill="{Binding Brush}" />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </DockPanel>
+
+            <Border Style="{StaticResource Panel}" VerticalAlignment="Top">
+                <StackPanel Margin="14">
+                    <!-- 1 risk -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=1}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Automating gameplay violates Roblox's Terms of Service and can get your account banned. Use an alt, not your main." />
+                        <CheckBox Style="{StaticResource Check}" Content="Understood." Margin="0,12,0,0"
+                                  IsChecked="{Binding RiskAcknowledged, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!-- 2 roblox -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=2}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Launch Roblox, enter Grand Piece Online, equip your rod. The panel on the right goes green when the window is found." />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,10,0,0"
+                                   Text="Leave it windowed or fullscreen, either works - just don't resize it after this." />
+                    </StackPanel>
+
+                    <!-- 3 region -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=3}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Start a fishing minigame by hand, then auto-detect. The capture on the right updates as you go." />
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Style="{StaticResource PrimaryQuietButton}" Content="Auto-detect"
+                                    Tag="auto" Click="CalAction_Click" />
+                            <Button Style="{StaticResource QuietButton}" Content="Drag-select"
+                                    Tag="drag" Margin="6,0,0,0" Click="CalAction_Click" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Note}" Margin="0,10,0,0"
+                                   Text="Give the gauge room. It slides with the camera, and a tight box clips the bar mid-fight." />
+                    </StackPanel>
+
+                    <!-- 4 proof -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=4}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Compare the reading with your screen. The bar and the fish line should be where the capture says they are." />
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Style="{StaticResource PrimaryQuietButton}" Content="Test again"
+                                    Tag="test" Click="CalAction_Click" />
+                            <Button Style="{StaticResource QuietButton}" Content="Sample gauge blue"
+                                    Tag="blue" Margin="6,0,0,0" Click="CalAction_Click" />
+                            <Button Style="{StaticResource QuietButton}" Content="Sample bar black"
+                                    Tag="black" Margin="6,0,0,0" Click="CalAction_Click" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Note}" Margin="0,10,0,0"
+                                   Text="Only re-sample if the reading is wrong - the two colours here came from auto-detect." />
+                    </StackPanel>
+
+                    <!-- 5 hotkeys -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=5}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Two keys, and they work while the game has focus. The second one gives your mouse back." />
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Border Style="{StaticResource Keycap}">
+                                <TextBlock Text="{Binding ToggleKeyUpper}" Style="{StaticResource KeycapText}" />
+                            </Border>
+                            <TextBlock Style="{StaticResource FieldLabel}" Margin="14,0,0,0" Text="start &#183; stop" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Border Style="{StaticResource Keycap}">
+                                <TextBlock Text="F8" Style="{StaticResource KeycapText}"
+                                           Foreground="{StaticResource Red}" />
+                            </Border>
+                            <TextBlock Style="{StaticResource FieldLabel}" Margin="14,0,0,0"
+                                       Text="panic &#183; stops everything and releases the mouse" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 6 ready -->
+                    <StackPanel Visibility="{Binding SetupStep, Converter={StaticResource EqualsToVisible}, ConverterParameter=6}">
+                        <TextBlock Style="{StaticResource FieldLabel}" TextWrapping="Wrap" LineHeight="20"
+                                   Text="Everything on the right is saved. The dashboard opens on the same readings." />
+                        <TextBlock Text="OPTIONAL, LATER" Style="{StaticResource Heading}" Margin="0,14,0,4" />
+                        <TextBlock Style="{StaticResource FieldLabel}"
+                                   FontFamily="{StaticResource Mono}"
+                                   Text="bait upkeep &#183; devil-fruit storage &#183; discord webhook" />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,4,0,0"
+                                   Text="Calibration and Settings, on the left, when you want them." />
+                    </StackPanel>
+
+                    <!-- The fault block: the same treatment as a calibration
+                         card's, above the action row. -->
+                    <Border Background="{StaticResource Surface2}" CornerRadius="3"
+                            Padding="12,10" Margin="0,12,0,0"
+                            BorderBrush="{Binding SetupFaultBrush}" BorderThickness="2,0,0,0"
+                            Visibility="{Binding HasSetupFault, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding SetupFaultWord}" Margin="0,0,0,6"
+                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                       FontSize="{StaticResource SizeLabel}"
+                                       Foreground="{Binding SetupFaultBrush}" />
+                            <TextBlock Text="{Binding SetupFaultText}" TextWrapping="Wrap" LineHeight="19"
+                                       FontFamily="{StaticResource Sans}"
+                                       FontSize="{StaticResource SizeBody}"
+                                       Foreground="{StaticResource Text2}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+        </DockPanel>
+    </DockPanel>
+    </Grid>
 </Window>

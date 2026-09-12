@@ -239,6 +239,121 @@ public sealed class MainViewModel : Observable
         set => Set(ref _updateButtonText, value);
     }
 
+    // ------------------------------------------------------------------ setup
+
+    // The first-run steps live in this window, over the shell, sharing its
+    // engine and every calibration handler. Six steps, skippable at any point.
+    private bool _setupActive;
+    public bool SetupActive
+    {
+        get => _setupActive;
+        set
+        {
+            if (!Set(ref _setupActive, value)) return;
+            Raise(nameof(ShellVisible));
+            Raise(nameof(CaptureEmptyNote));
+            PaintPips();
+        }
+    }
+    public bool ShellVisible => !_setupActive;
+
+    private int _setupStep = 1;
+    public int SetupStep
+    {
+        get => _setupStep;
+        set
+        {
+            value = Math.Clamp(value, 1, 6);
+            if (!Set(ref _setupStep, value)) return;
+            PaintPips();
+            foreach (var name in new[] { nameof(SetupHeading), nameof(SetupNote), nameof(SetupNextLabel),
+                                         nameof(SetupBackBrush), nameof(CanSetupNext), nameof(CaptureEmptyNote) })
+                Raise(name);
+            RefreshSetupFault();
+        }
+    }
+
+    private bool _riskAcknowledged;
+    public bool RiskAcknowledged
+    {
+        get => _riskAcknowledged;
+        set { if (Set(ref _riskAcknowledged, value)) Raise(nameof(CanSetupNext)); }
+    }
+
+    public bool CanSetupNext => _setupStep != 1 || _riskAcknowledged;
+
+    private static readonly (string Heading, string Note)[] SetupCopy =
+    {
+        ("1 \u00b7 BEFORE YOU START", "This is the only thing here you cannot skip past without reading."),
+        ("2 \u00b7 THE ROBLOX WINDOW", "Coordinates are stored relative to it, so moving it later is fine."),
+        ("3 \u00b7 SCAN REGION", "Auto-detect finds the gauge by its signature colours."),
+        ("4 \u00b7 PROOF", "A wrong reading here is the one failure that looks like bad luck later."),
+        ("5 \u00b7 HOTKEYS", "Global, so they work while the game has focus."),
+        ("6 \u00b7 READY", "Nothing else is required to fish."),
+    };
+
+    public string SetupHeading => SetupCopy[_setupStep - 1].Heading;
+    public string SetupNote => SetupCopy[_setupStep - 1].Note;
+    public string SetupNextLabel => _setupStep switch { 1 => "I understand", 6 => "Open dashboard", _ => "Next" };
+    public Brush SetupBackBrush => Palette.Named(_setupStep == 1 ? "Faint" : "Text");
+
+    public Reading[] SetupPips { get; } =
+        { new("risk"), new("roblox"), new("region"), new("proof"), new("hotkeys"), new("ready") };
+
+    /// <summary>GREEN now, GREEN_DIM done, LINE ahead.</summary>
+    private void PaintPips()
+    {
+        for (var i = 0; i < SetupPips.Length; i++)
+            SetupPips[i].Brush = Palette.Named(
+                i + 1 == _setupStep ? "Green" : i + 1 < _setupStep ? "GreenDim" : "Line");
+    }
+
+    /// <summary>What the empty capture well says. During setup it teaches the
+    /// step; afterwards it just says there has been no test.</summary>
+    public string CaptureEmptyNote => !_setupActive ? "no test yet" : _setupStep switch
+    {
+        1 => "nothing to see yet",
+        2 => "no roblox window\n\nlaunch the game",
+        _ => "no gauge found\n\nstart a minigame,\nthen auto-detect",
+    };
+
+    private string _toggleKeyUpper = "F6";
+    public string ToggleKeyUpper { get => _toggleKeyUpper; set => Set(ref _toggleKeyUpper, value); }
+
+    // The setup's fault block: the same treatment as a calibration card's,
+    // shown only once the step it concerns has been reached.
+    private string _setupFaultWord = "", _setupFaultText = "";
+    public string SetupFaultWord { get => _setupFaultWord; private set => Set(ref _setupFaultWord, value); }
+    public string SetupFaultText
+    {
+        get => _setupFaultText;
+        private set { if (Set(ref _setupFaultText, value)) Raise(nameof(HasSetupFault)); }
+    }
+    public bool HasSetupFault => _setupFaultText.Length > 0;
+
+    private Brush _setupFaultBrush = Brushes.Gray;
+    public Brush SetupFaultBrush { get => _setupFaultBrush; private set => Set(ref _setupFaultBrush, value); }
+
+    private void RefreshSetupFault()
+    {
+        var (word, text, brush) = (_fault, _setupStep) switch
+        {
+            ("window_lost", >= 2) => ("window lost",
+                "The Roblox window disappeared mid-setup. Everything already set is saved; " +
+                "launch the game and carry on from here.", "Red"),
+            ("no_window", >= 2) => ("no window",
+                "Nothing called \"Roblox\" is open. Launch the game and this turns green on its " +
+                "own - the setup does not need restarting.", "Amber"),
+            ("no_gauge", >= 3) => ("no gauge found",
+                "Auto-detect found no run of gauge blue tall enough to be the bar. Start a " +
+                "minigame by hand so the gauge is up, then try again, or drag-select it yourself.", "Red"),
+            _ => ("", "", "Amber"),
+        };
+        SetupFaultWord = word;
+        SetupFaultText = text;
+        SetupFaultBrush = Palette.Named(brush);
+    }
+
     // ------------------------------------------------------------ calibration
 
     // The shell owns the words and the buttons; MainWindow refreshes state,
@@ -339,6 +454,8 @@ public sealed class MainViewModel : Observable
             ? faultElement.GetString() : null;
         var faultChanged = fault != Fault;
         Fault = fault;
+        if (faultChanged) RefreshSetupFault();
+        ToggleKeyUpper = toggleKey.ToUpperInvariant();
 
         var hasWindow = tick.TryGetProperty("window", out var window)
                         && window.ValueKind == JsonValueKind.Object;
