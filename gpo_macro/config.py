@@ -98,23 +98,62 @@ class PointMap:
 
 @dataclass
 class BaitConfig(PointMap):
-    auto_buy: bool = False
-    loops_per_purchase: int = 100          # buy bait every N catches
+    """Bait upkeep between catches: craft at Blacksmith Sen, or buy at the barrel.
+
+    One or the other, never both. set_config keeps whichever was switched on
+    last, and a hand-edited file with both on runs neither.
+
+    Rare and Legendary bait exist only as crafts - two rare fish or one
+    legendary fish each - which is what a Devil Fruit Rod session lives on.
+    Common bait is bought. Every step reads the screen before it clicks: the
+    N/M material counter under the + slot is red until filled and green once
+    ready, and the top-of-screen strip goes red when the fish run out.
+    """
+
     auto_craft: bool = False
-    loops_per_craft: int = 5               # craft bait every N catches
-    crafts_per_cycle: int = 40
-    # Click points: shop menu
-    shop_open: list[int] = field(default_factory=list)
-    shop_buy_common: list[int] = field(default_factory=list)
+    auto_buy: bool = False
+    every_n_catches: int = 25
+    menu_delay: float = 0.5                # settle after any menu click; raise on a slow PC
+    bait_select: list[int] = field(default_factory=list)   # your tier's row in the
+    # Fishing Baits panel that shows while a rod is held. GPO drops the selection,
+    # so it is clicked again after every upkeep pass.
+
+    # Craft: Blacksmith Sen. T -> "are you interested?" -> Yes -> the menu.
+    talk_key: str = "t"
+    dialog_yes: list[int] = field(default_factory=list)
+    menu_region: Region = field(default_factory=Region)          # the whole panel
+    craft_recipe: list[int] = field(default_factory=list)        # row in Craftable Items
+    craft_add: list[int] = field(default_factory=list)           # the + slot
+    craft_pick: list[int] = field(default_factory=list)          # first row of the
+    # fish list that + opens beside the menu; the row is found by its colour
+    craft_counter_region: Region = field(default_factory=Region) # the N/M under it
+    craft_button: list[int] = field(default_factory=list)        # anchor; the green
+    # CRAFT slab is searched for around it, like the Store Fruit prompt
+    craft_close: list[int] = field(default_factory=list)         # the red X
+    dialog_end: list[int] = field(default_factory=list)          # the "..." bubble
+    # that stays after the X. Until it is clicked the conversation is still
+    # open: no HUD, no prompt, and T does nothing.
+
+    # Buy: the bait barrel. Hold the key, type an amount, confirm.
+    shop_key: str = "t"
+    shop_hold: float = 1.0
+    buy_amount: int = 100                  # the stack caps at 300
+    shop_quantity: list[int] = field(default_factory=list)
     shop_confirm: list[int] = field(default_factory=list)
-    shop_close: list[int] = field(default_factory=list)
-    # Click points: crafting menu
-    craft_open: list[int] = field(default_factory=list)
-    craft_select_recipe: list[int] = field(default_factory=list)
-    craft_select_amount: list[int] = field(default_factory=list)
-    craft_button: list[int] = field(default_factory=list)
-    craft_confirm: list[int] = field(default_factory=list)
-    craft_close: list[int] = field(default_factory=list)
+    shop_cancel: list[int] = field(default_factory=list)         # optional
+
+    # Walk: only if the fishing spot is outside Sen's prompt range. The bot
+    # holds walk_keys until his T prompt shows on screen, and afterwards holds
+    # return_keys for the same time it took - so the fishing spot is re-derived
+    # from a fixed point every pass instead of drifting a little more each one.
+    # GPO's Auto Run must be OFF (Menu > Settings): it turns a held key into a
+    # sprint partway through, so the copied time overshoots into the sea.
+    walk_to_sen: bool = False
+    walk_keys: str = "d"                   # "w+d" for a diagonal
+    return_keys: str = "a"
+    max_walk: float = 4.0
+    return_scale: float = 1.0              # >1 if it stops short on the way back
+    prompt_template: str = "templates/prompt_t.png"   # the white T badge, snipped
 
 
 @dataclass

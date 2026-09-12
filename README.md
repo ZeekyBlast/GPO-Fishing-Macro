@@ -23,8 +23,12 @@ instead of 104**: no PyTorch, no OCR, no audio SDK stack.
   (auto-pause), reel-timeout failsafe, panic key instantly releases the mouse
 - **Live dashboard**: fish count, fish/hour, session uptime, event log,
   optional live detection preview
-- **Auto bait buy/craft** and **devil-fruit auto-store**: finds which hotbar
-  slot holds a fruit, stores it, and reads the result banner. No OCR
+- **Bait upkeep**: crafts Rare or Legendary bait at Blacksmith Sen until the
+  fish run out, or buys common bait at the barrel, then puts the bait back on
+  the rod. Reads the menu's colours to know what happened; optionally walks
+  to Sen and back
+- **Devil-fruit auto-store**: finds which hotbar slot holds a fruit, stores
+  it, and reads the result banner. No OCR
 - **Discord webhook** notifications: fruit stored (with a screenshot of the
   banner naming it), milestones, errors, recast timeouts, periodic session
   stats, optional pings. Rate-limit aware, fault messages throttled
@@ -96,8 +100,8 @@ window as one self-contained file, and writes `dist\GPO Fishing Macro Setup
      (or **Drag-select region** around the gauge).
    - Click **Test detection**: the saved screenshot should box the whole
      gauge, with the bar centre and the fish marker drawn on it.
-   - Optional: bait points, devil-fruit storage, colour re-sampling if Roblox
-     changes its UI.
+   - Optional: bait upkeep points, devil-fruit storage, colour re-sampling if
+     Roblox changes its UI.
 3. Press **Start** (or the toggle hotkey, default **F6**). Panic key is
    **F8**, which stops everything and releases the mouse instantly.
 4. Watch the dashboard. The reel panel shows the on-the-fish percentage for
@@ -180,6 +184,57 @@ slot), the **hotbar row** (a box containing every slot, which does not need to
 line up with them), the **banner strip**, and a point anywhere on the **Store
 button**, which anchors the search for it.
 
+### Bait upkeep
+
+Rare and Legendary bait are craft-only: two rare fish or one legendary fish
+each, at Blacksmith Sen on the Shells Town dock. A Devil Fruit Rod session
+lives on them, and every fruit fished up is a legendary fish that did not come
+back as bait, so the stack drains and has to be topped up from the catch.
+Common bait is bought at the bait barrel. **Craft or buy, not both**: switching
+one on in Settings switches the other off.
+
+Every `N` catches the macro runs one upkeep pass, and every step of it reads
+the screen before it clicks, because with a rod in hand a click that lands on
+nothing is a cast:
+
+1. Press `T`, wait for Sen's *"are you interested?"* dialogue to appear where
+   the **Yes** button was calibrated, click it, wait for the menu.
+2. Click your bait's recipe row; the `N/M` counter under the **+** slot
+   appearing in red is the proof it selected. Click **+**: a list of your
+   eligible fish opens beside the menu. Click its first row and the counter
+   turns **green** (two-fish recipes go red at `1/2` and it adds another).
+   Click the green **CRAFT** slab, searched for near its anchor like the
+   Store Fruit prompt. The counter going red again is one bait made.
+3. Repeat until **+** opens nothing and the game says *"You dont have any
+   eligible materials to add!"*. That is the stop; nothing is counted.
+4. Close with the red X, click the **...** bubble Sen leaves at the bottom
+   (until it is clicked the conversation is still open and `T` does nothing),
+   then click your bait's row in the **Fishing Baits** panel that shows while
+   the rod is held. GPO drops the selection, so this runs after every pass.
+
+Buying is the same shape: hold the barrel's key, and only once the quantity
+box has visibly appeared type the amount, then Confirm. Typing with no box
+focused would go to the game, so the routine bails before a keystroke if the
+dialog is not there.
+
+**Calibrate crafting** on the Calibration tab walks you through it, because
+the points are never all on screen at once: it tells you how to get the game
+into each state (dialogue up, menu open with your bait selected, fish list
+open, the bubble after closing, rod held), waits for OK, then has you click
+only what that screen shows. Buying is the barrel's quantity box and Confirm.
+
+**Walking.** If your fishing spot is outside Sen's prompt range, turn on *Walk
+to Sen and back* and snip the white `T` badge from his prompt. The macro holds
+the walk keys until that badge shows on screen, crafts, then holds the return
+keys for exactly as long as the walk in took. The leg in always ends at the
+same place, so the fishing spot is re-derived from a fixed point each pass
+rather than drifting. Two game settings first: turn GPO's **Auto Run off**
+(Menu > Settings), or the return leg switches to a sprint partway and carries
+you off the dock into the sea; and set Roblox's camera to **Classic**, since
+Follow mode turns a held `D` into a curve. If five casts in a row get no bite after a
+walk, the bot stops and says so rather than fishing the dock all night; tune
+*Return leg scale* and restart.
+
 ## Console mode
 
 ```bat
@@ -210,7 +265,7 @@ gpo_macro/
   controller.py      PID -> hold/release decisions
   input.py           pynput input + failsafe + hotkey helpers
   fisher.py          bot thread: fishing state machine
-  tasks.py           bait buy/craft, fruit template match + store
+  tasks.py           bait craft/buy + the walk to Sen, fruit template match + store
   notify.py          Discord webhooks (worker thread)
   sound_alert.py     WASAPI loopback spike detector (experimental)
   stats.py           thread-safe counters + event bus

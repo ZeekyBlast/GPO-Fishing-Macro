@@ -97,6 +97,19 @@ def main() -> int:
         read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 4)
         print("set_config ok - round-trip restored")
 
+        # Craft or buy, never both: the one just switched on wins.
+        modes = hello["config"]["bait"]
+        send(proc, id=6, cmd="set_config", patch={"bait": {"auto_buy": True, "auto_craft": False}})
+        read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 6)
+        send(proc, id=7, cmd="set_config", patch={"bait": {"auto_buy": True, "auto_craft": True}})
+        both = read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 7)
+        bait = both["result"]["config"]["bait"]
+        assert bait["auto_craft"] and not bait["auto_buy"], bait
+        send(proc, id=8, cmd="set_config",
+             patch={"bait": {"auto_buy": modes["auto_buy"], "auto_craft": modes["auto_craft"]}})
+        read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 8)
+        print("set_config ok - one bait mode at a time")
+
         send(proc, id=5, cmd="nonsense")
         bad = read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 5)
         assert bad["ok"] is False and "unknown command" in bad["error"], bad

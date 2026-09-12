@@ -85,6 +85,21 @@ def main():
               f"fish_y={r.seg_center_y:.1f} overlap={r.overlap} "
               f"pill={r.track_top}-{r.track_bottom}")
 
+    # A frame with the fish line painted out still reads, but says so: the
+    # returned fish is the previous one, and the caller decides how long that
+    # is allowed to go on. Fed back in unbounded it was a fish frozen at one y
+    # for a whole fight.
+    frame = cv2.imread(paths.fixture("gauge_apart.png"))
+    real = find_bar(frame, cfg)
+    assert real is not None and not real.fish_coasted
+    x1, x2 = real.band_x1, real.band_x2 + 1
+    blanked = frame.copy()
+    blanked[real.seg_top - 3:real.seg_bottom + 4, x1:x2] = blanked[real.seg_top - 8, x1:x2]
+    assert find_bar(blanked, cfg) is None, "lost line with no history must be a miss"
+    ghost = find_bar(blanked, cfg, prev_fish_y=real.seg_center_y)
+    assert ghost is not None and ghost.fish_coasted, ghost
+    assert abs(ghost.seg_center_y - real.seg_center_y) < 1, ghost.seg_center_y
+
     print("all detection checks passed")
 
 

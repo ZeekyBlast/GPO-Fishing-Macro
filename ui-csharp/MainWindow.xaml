@@ -404,15 +404,28 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Text="3 · BAIT AUTOMATION" Style="{StaticResource Heading}" />
+                    <TextBlock Text="3 · BAIT UPKEEP" Style="{StaticResource Heading}" />
                     <TextBlock Style="{StaticResource Note}"
-                               Text="Optional. Records where to click to buy or craft bait between catches; leave it alone unless you turn those on in Settings." />
+                               Text="Optional. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, the menu, the fish list, the bubble he leaves behind, then your bait's row on the rod. The small buttons redo one piece. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. Snip the T badge only if the macro has to walk to Sen." />
                     <Border Style="{StaticResource Panel}">
-                        <StackPanel Orientation="Horizontal" Margin="12,10">
-                            <Button Style="{StaticResource QuietButton}" Content="Pick shop points"
-                                    MinWidth="160" Click="BaitShop_Click" />
-                            <Button Style="{StaticResource QuietButton}" Content="Pick crafting points"
-                                    MinWidth="180" Margin="6,0,0,0" Click="BaitCraft_Click" />
+                        <StackPanel Margin="12,10">
+                            <TextBlock Text="{Binding BaitLines}" Style="{StaticResource Readout}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Calibrate crafting"
+                                        MinWidth="150" Click="BaitCraft_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Menu region"
+                                        MinWidth="110" Margin="6,0,0,0" Click="BaitMenu_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="N/M counter"
+                                        MinWidth="110" Margin="6,0,0,0" Click="BaitCounter_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Bait row"
+                                        MinWidth="100" Margin="6,0,0,0" Click="BaitRow_Click" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Style="{StaticResource QuietButton}" Content="Pick barrel points"
+                                        MinWidth="140" Click="BaitShop_Click" />
+                                <Button Style="{StaticResource QuietButton}" Content="Snip Sen's T badge"
+                                        MinWidth="150" Margin="6,0,0,0" Click="BaitPrompt_Click" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

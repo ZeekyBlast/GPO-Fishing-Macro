@@ -65,6 +65,7 @@ class FishingBot(threading.Thread):
         self._reel_presses = 0
         self._reel_releases = 0
         self._last_fish_y: float | None = None
+        self._fish_seen_at = 0.0
         self._prev_bar_y: float | None = None
         self._bar_vel = 0.0
         self._fish_vel = 0.0
@@ -72,8 +73,8 @@ class FishingBot(threading.Thread):
         self._reel_last_debug = 0.0
         self._reel_error_published = False
         self._last_frame_time = 0.0
-        self._catches_since_purchase = 0
-        self._catches_since_craft = 0
+        self._catches_since_upkeep = 0
+        self._timeouts_since_upkeep = 0
         self._last_preview_publish = 0.0
         self._preview_lock = threading.Lock()
         self._preview_frame: np.ndarray | None = None
@@ -118,11 +119,14 @@ class FishingBot(threading.Thread):
                 self._publish("state", state.value)
 
     def _release_mouse_safely(self) -> None:
-        if self._input is not None and self._input.mouse_held:
+        if self._input is None:
+            return
+        if self._input.mouse_held:
             try:
                 self._input.release_mouse()
             except Exception:
                 pass
+        self._input.release_keys()      # a walk key left down walks into the sea
 
     # ------------------------------------------------------------------ run
 
@@ -267,6 +271,7 @@ class FishingBot(threading.Thread):
                 self._reel_presses = 0
                 self._reel_releases = 0
                 self._last_fish_y = None
+                self._fish_seen_at = self._reel_started
                 self._prev_bar_y = None
                 self._bar_vel = 0.0
                 self._fish_vel = 0.0
@@ -278,8 +283,18 @@ class FishingBot(threading.Thread):
 
         if time.monotonic() > self._deadline:
             self.stats.record_timeout()
+            self._timeouts_since_upkeep += 1
             self._publish("timeout",
                           f"no bite within {self.cfg.fishing.recast_timeout:.0f}s - recasting")
+            # After a walk, a run of dead casts means the return leg missed
+            # and the line is going into the dock. That fails quietly all
+            # night unless it is treated as a fault.
+            if self.cfg.bait.walk_to_sen and self._timeouts_since_upkeep >= 5:
+                self._publish("error", "5 casts in a row got no bite since walking back "
+                                       "from Sen - stopping. Check the return keys and "
+                                       "return scale, then restart")
+                self._stop_event.set()
+                return
             self._set_state(State.CAST)
 
     def _end_reel(self, reason: str, warn: bool) -> None:
@@ -341,6 +356,16 @@ class FishingBot(threading.Thread):
             if now - self._last_seen > 1.2:
                 self._end_reel("gauge disappeared", warn=False)
             return
+        # A coasted fish is the last sighting echoed back, not a reading.
+        # Allow it for a flash or an overlap animation; past that the gauge is
+        # as good as unreadable, and the timeout above takes it from there
+        # instead of the controller chasing a fish frozen at one y.
+        if reading.fish_coasted:
+            if now - self._fish_seen_at > 0.4:
+                self._last_fish_y = None
+                return
+        else:
+            self._fish_seen_at = now
         self._last_seen = now
         self._reel_frames += 1
         prev_fish_y = self._last_fish_y
@@ -395,8 +420,8 @@ class FishingBot(threading.Thread):
     def _do_loot(self, grabber: ScreenGrabber) -> None:
         time.sleep(self.cfg.fishing.loot_delay)
         total = self.stats.record_fish()
-        self._catches_since_purchase += 1
-        self._catches_since_craft += 1
+        self._catches_since_upkeep += 1
+        self._timeouts_since_upkeep = 0
         self._publish("fish", f"caught fish #{total}", total=total)
         webhook = self.cfg.webhook
         if webhook.log_milestones and webhook.url and total > 0 \
@@ -410,17 +435,16 @@ class FishingBot(threading.Thread):
             # Every task in here clicks menus. The cast aims at wherever the
             # cursor is, so the cursor has to end up back over the water.
             with self._input.preserved_position():
-                if (bait.auto_buy
-                        and self._catches_since_purchase >= max(1, bait.loops_per_purchase)):
-                    self._catches_since_purchase = 0
-                    tasks.buy_bait(self._input, bait, self._publish)
-                if bait.auto_craft and self._catches_since_craft >= max(1, bait.loops_per_craft):
-                    self._catches_since_craft = 0
-                    tasks.craft_bait(self._input, bait, self._publish)
                 if self.cfg.fruit.auto_store:
                     tasks.store_fruits(self._input, grabber, self._tracker,
                                        self.cfg.fruit, self.cfg.fishing.rod_key,
                                        self._publish)   # (stored, dropped)
+                if ((bait.auto_buy or bait.auto_craft)
+                        and self._catches_since_upkeep >= max(1, bait.every_n_catches)):
+                    self._catches_since_upkeep = 0
+                    self._timeouts_since_upkeep = 0
+                    tasks.upkeep_bait(self._input, grabber, self._tracker, bait,
+                                      self.cfg.fruit.banner_region, self._publish)
         except FailsafeError:
             raise
         except Exception as exc:

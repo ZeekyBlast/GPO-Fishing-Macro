@@ -254,12 +254,23 @@ class Engine:
         patch = req.get("patch") or {}
         if not isinstance(patch, dict):
             raise ValueError("patch must be an object")
+        self._one_bait_mode(patch.get("bait"))
         dict_into_dataclass(self.cfg, patch)
         self.store.update()
         self.hotkeys.restart()
         self.notifier.restart_periodic()
         self._sync_sound()
         return {"config": self.cfg.to_dict()}
+
+    def _one_bait_mode(self, bait: Any) -> None:
+        """Craft or buy, never both. The one just switched on wins; the form
+        shows the whole bait section, so the loser is whichever was already on."""
+        if not isinstance(bait, dict) or not (bait.get("auto_buy") and bait.get("auto_craft")):
+            return
+        loser = "auto_buy" if self.cfg.bait.auto_buy else "auto_craft"
+        bait[loser] = False
+        self.bus.publish(Event(kind="warn", message="auto-buy and auto-craft are one or "
+                               f"the other - turned {loser.replace('_', '-')} off"))
 
     def cmd_window(self, _req) -> dict:
         """Where the Roblox client area sits, so the shell can turn a screen

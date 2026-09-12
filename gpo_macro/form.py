@@ -26,11 +26,19 @@ FORM: list[tuple[str, str, str, str, str]] = [
     ("Fishing", "fishing", "reel_max_duration", "Max reel duration (s)", "float"),
     ("Fishing", "fishing", "pause_on_focus_lost", "Pause when Roblox unfocused", "bool"),
     ("Fishing", "fishing", "action_jitter", "Action jitter (0-1)", "float"),
-    ("Bait", "bait", "auto_buy", "Auto-buy common bait", "bool"),
-    ("Bait", "bait", "loops_per_purchase", "Buy every N catches", "int"),
-    ("Bait", "bait", "auto_craft", "Auto-craft bait", "bool"),
-    ("Bait", "bait", "loops_per_craft", "Craft every N catches", "int"),
-    ("Bait", "bait", "crafts_per_cycle", "Crafts per cycle", "int"),
+    ("Bait", "bait", "auto_craft", "Auto-craft bait at Blacksmith Sen", "bool"),
+    ("Bait", "bait", "auto_buy", "Auto-buy common bait at the barrel", "bool"),
+    ("Bait", "bait", "every_n_catches", "Upkeep every N catches", "int"),
+    ("Bait", "bait", "menu_delay", "Menu settle time (s)", "float"),
+    ("Bait", "bait", "talk_key", "Sen's prompt key", "str"),
+    ("Bait", "bait", "shop_key", "Barrel's prompt key", "str"),
+    ("Bait", "bait", "shop_hold", "Hold the barrel key for (s)", "float"),
+    ("Bait", "bait", "buy_amount", "Bait per purchase (max 300)", "int"),
+    ("Bait", "bait", "walk_to_sen", "Walk to Sen and back", "bool"),
+    ("Bait", "bait", "walk_keys", "Walk keys (e.g. d, or w+d)", "str"),
+    ("Bait", "bait", "return_keys", "Return keys", "str"),
+    ("Bait", "bait", "max_walk", "Give up walking after (s)", "float"),
+    ("Bait", "bait", "return_scale", "Return leg scale", "float"),
     ("Fruit", "fruit", "auto_store", "Auto-store devil fruits", "bool"),
     ("Fruit", "fruit", "match_threshold", "Icon match threshold", "float"),
     ("Fruit", "fruit", "store_wait", "Wait for banner (s)", "float"),
@@ -66,7 +74,13 @@ SECTION_NOTES: dict[str, str] = {
                   "it if it stalls short. Watch the on-the-fish percentage on the "
                   "dashboard while you change it.",
     "Fishing": "Timings around the cast. Jitter randomises every delay by this fraction.",
-    "Bait": "Needs the bait click points from the Calibration tab before it will run.",
+    "Bait": "Craft or buy, not both: switching one on switches the other off. Crafting "
+            "is the only source of Rare and Legendary bait (two rare fish or one legendary "
+            "fish each) and it crafts until the fish run out. Both need their points from "
+            "the Calibration tab. Walking is only for a fishing spot outside Sen's prompt "
+            "range. Before using it: turn GPO's Auto Run OFF (Menu > Settings), or the "
+            "return leg sprints past the spot and into the sea, and set the camera to "
+            "Classic, since Follow mode turns a straight walk into a curve.",
     "Fruit": "Needs the fruit icon, hotbar row, banner strip and store button from "
              "the Calibration tab. GPO only lets you own one of each fruit, so a "
              "refusal is normal and the duplicate is dropped, which destroys it. "

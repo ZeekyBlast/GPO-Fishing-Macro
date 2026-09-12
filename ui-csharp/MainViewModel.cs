@@ -167,7 +167,9 @@ public sealed class MainViewModel : Observable
     public string ColourLines { get => _colourLines; set => Set(ref _colourLines, value); }
 
     private string _fruitLines = "";
+    private string _baitLines = "";
     public string FruitLines { get => _fruitLines; set => Set(ref _fruitLines, value); }
+    public string BaitLines { get => _baitLines; set => Set(ref _baitLines, value); }
 
     // ----------------------------------------------------------------- intake
 

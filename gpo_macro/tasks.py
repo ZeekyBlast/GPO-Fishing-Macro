@@ -1,15 +1,19 @@
-"""Optional automation routines: bait buying/crafting and devil-fruit storage.
+"""Optional automation routines: bait upkeep and devil-fruit storage.
 
-These walk calibrated click sequences (window-relative points from the config).
-Missing calibration points cause a single warning event, never a crash.
+Every routine here clicks menus, and every one of them reads the screen
+before it clicks: a menu that did not open is a click into the world, which
+with a rod in hand is a cast. So the pattern throughout is probe a small box
+around the target, trigger, wait for that box to change, and only then click.
+Missing calibration causes a single warning event, never a crash.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Iterator, Optional
 
 import cv2
 import numpy as np
@@ -27,42 +31,6 @@ def _warn_once(publish: Publish, message: str, _seen: set[str] = set()) -> None:
     if message not in _seen:
         _seen.add(message)
         publish("warn", message)
-
-
-def buy_bait(input_ctl: InputController, cfg: BaitConfig, publish: Publish) -> None:
-    """Open the bait shop, buy common bait, confirm, close."""
-    required = ["shop_open", "shop_buy_common", "shop_close"]
-    missing = [p for p in required if not getattr(cfg, p)]
-    if missing:
-        _warn_once(publish, f"bait buy skipped - not calibrated: {', '.join(missing)}")
-        return
-    publish("info", "buying bait")
-    input_ctl.click(cfg.shop_open, delay_after=0.85)          # menu animation
-    input_ctl.click(cfg.shop_buy_common, delay_after=0.3)
-    if cfg.shop_confirm:
-        input_ctl.click(cfg.shop_confirm, delay_after=0.3)
-    input_ctl.click(cfg.shop_close, delay_after=0.3)
-    publish("info", "bait purchased")
-
-
-def craft_bait(input_ctl: InputController, cfg: BaitConfig, publish: Publish) -> None:
-    """Open the crafting menu and batch-craft the selected recipe."""
-    required = ["craft_open", "craft_select_recipe", "craft_button", "craft_close"]
-    missing = [p for p in required if not getattr(cfg, p)]
-    if missing:
-        _warn_once(publish, f"bait craft skipped - not calibrated: {', '.join(missing)}")
-        return
-    publish("info", f"crafting bait x{cfg.crafts_per_cycle}")
-    input_ctl.click(cfg.craft_open, delay_after=0.85)
-    input_ctl.click(cfg.craft_select_recipe, delay_after=0.25)
-    if cfg.craft_select_amount:
-        input_ctl.click(cfg.craft_select_amount, delay_after=0.2)
-    for _ in range(max(1, cfg.crafts_per_cycle)):
-        input_ctl.click(cfg.craft_button, delay_after=0.05)
-    if cfg.craft_confirm:
-        input_ctl.click(cfg.craft_confirm, delay_after=0.3)
-    input_ctl.click(cfg.craft_close, delay_after=0.3)
-    publish("info", "bait crafted")
 
 
 _TEMPLATE_CACHE: dict[str, np.ndarray] = {}
@@ -146,6 +114,15 @@ def red_fraction(frame_bgr: np.ndarray) -> float:
     b, g, r = (frame_bgr[:, :, 0].astype(int), frame_bgr[:, :, 1].astype(int),
                frame_bgr[:, :, 2].astype(int))
     return float(((r > 140) & (r > g + 60) & (r > b + 60)).mean())
+
+
+def green_fraction(frame_bgr: np.ndarray) -> float:
+    """Fraction of strongly green pixels - the craft counter once it is filled."""
+    if frame_bgr.size == 0:
+        return 0.0
+    b, g, r = (frame_bgr[:, :, 0].astype(int), frame_bgr[:, :, 1].astype(int),
+               frame_bgr[:, :, 2].astype(int))
+    return float(((g > 120) & (g > r + 50) & (g > b + 50)).mean())
 
 
 def changed_fraction(before_bgr: np.ndarray, after_bgr: np.ndarray) -> float:
@@ -265,16 +242,21 @@ def store_fruits(input_ctl: InputController, grabber: ScreenGrabber,
 
 def _wait_for_prompt(grabber: ScreenGrabber, tracker: WindowTracker,
                      cfg: FruitConfig, timeout: float = 0.7) -> Optional[list[int]]:
-    """Where to click Store Fruit, or None if it is not up.
+    return wait_for_green(grabber, tracker, cfg.store_point,
+                          cfg.store_search_x, cfg.store_search_y, timeout)
 
-    The prompt is searched for rather than assumed: it is a proximity prompt,
-    so a hand-placed point a few pixels off its edge misses every time and
-    reports it as absent when it is right there.
+
+def wait_for_green(grabber: ScreenGrabber, tracker: WindowTracker, point: list[int],
+                   search_x: int, search_y: int, timeout: float) -> Optional[list[int]]:
+    """Where to click a green button near `point`, or None if none is up.
+
+    Searched for rather than assumed: the Store Fruit prompt is a proximity
+    prompt, so a hand-placed point a few pixels off its edge misses every time
+    and reports it as absent when it is right there. The CRAFT slab is found
+    the same way for the same reason.
     """
-    search = Region(cfg.store_point[0] - cfg.store_search_x,
-                    cfg.store_point[1] - cfg.store_search_y,
-                    cfg.store_point[0] + cfg.store_search_x,
-                    cfg.store_point[1] + cfg.store_search_y)
+    search = Region(point[0] - search_x, point[1] - search_y,
+                    point[0] + search_x, point[1] + search_y)
     deadline = time.monotonic() + timeout
     while True:
         try:
@@ -285,6 +267,33 @@ def _wait_for_prompt(grabber: ScreenGrabber, tracker: WindowTracker,
             return [search.x1 + found[0], search.y1 + found[1]]
         if time.monotonic() >= deadline:
             return None
+        time.sleep(0.08)
+
+
+def box_around(point: list[int], half: int = 24) -> Region:
+    return Region(point[0] - half, point[1] - half, point[0] + half, point[1] + half)
+
+
+def probe(grabber: ScreenGrabber, tracker: WindowTracker, region: Region) -> np.ndarray:
+    """A baseline frame of a region, taken before something is triggered."""
+    try:
+        return grabber.grab_region(tracker, region)
+    except Exception:
+        return np.zeros((0, 0, 3), np.uint8)
+
+
+def wait_changed(grabber: ScreenGrabber, tracker: WindowTracker, region: Region,
+                 baseline: np.ndarray, timeout: float, min_change: float = 0.15) -> bool:
+    """True once `region` differs from `baseline` - the thing appeared (or left)."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            if changed_fraction(baseline, grabber.grab_region(tracker, region)) >= min_change:
+                return True
+        except Exception:
+            return False
+        if time.monotonic() >= deadline:
+            return False
         time.sleep(0.08)
 
 
@@ -314,6 +323,296 @@ def _attempt_store(input_ctl: InputController, grabber: ScreenGrabber,
         path = str(directory / f"{time.strftime('%Y%m%d-%H%M%S')}-{outcome}.png")
         cv2.imwrite(path, after)
     return outcome, path
+
+
+# ---------------------------------------------------------------- bait upkeep
+
+CRAFT_CEILING = 300         # the bait stack cap; no loop needs more
+PROMPT_MATCH = 0.85         # the white T badge is high-contrast; matches score high
+
+
+def _missing(cfg: BaitConfig, names: list[str]) -> list[str]:
+    out = []
+    for name in names:
+        value = getattr(cfg, name)
+        if not (value.valid() if isinstance(value, Region) else bool(value)):
+            out.append(name.replace("_", " "))
+    return out
+
+
+def upkeep_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+                cfg: BaitConfig, banner: Region, publish: Publish) -> None:
+    """One upkeep pass: craft or buy, then put the bait back on the rod.
+
+    `banner` is the fruit section's top-of-screen strip: the craft menu's
+    "no eligible materials" and the barrel's refusals land on the same strip
+    as "New Item", so it is calibrated once.
+    """
+    if cfg.auto_buy and cfg.auto_craft:
+        _warn_once(publish, "auto-buy and auto-craft are both on - running neither. "
+                            "Pick one in Settings.")
+        return
+    if cfg.auto_craft:
+        with walked_to_sen(input_ctl, grabber, cfg, publish) as there:
+            if there:
+                craft_bait(input_ctl, grabber, tracker, cfg, banner, publish)
+    elif cfg.auto_buy:
+        buy_bait(input_ctl, grabber, tracker, cfg, banner, publish)
+    else:
+        return
+    select_bait(input_ctl, cfg, publish)
+
+
+def craft_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+               cfg: BaitConfig, banner: Region, publish: Publish) -> int:
+    """Craft the calibrated recipe until the fish run out. Returns how many.
+
+    The N/M counter under the + slot is the whole state machine: red means it
+    wants fish, green means it is full, and red again after CRAFT means one
+    bait was made. The top strip going red ("You dont have any eligible
+    materials to add!") is the stop. Nothing is counted, nothing is read.
+    """
+    missing = _missing(cfg, ["dialog_yes", "menu_region", "craft_recipe", "craft_add",
+                             "craft_pick", "craft_counter_region", "craft_button",
+                             "craft_close", "dialog_end"])
+    if missing:
+        _warn_once(publish, "auto-craft is on but not calibrated: "
+                            f"{', '.join(missing)} (Calibration tab)")
+        return 0
+
+    settle = max(0.1, cfg.menu_delay)
+    yes_box = box_around(cfg.dialog_yes)
+    before_yes = probe(grabber, tracker, yes_box)
+    before_end = probe(grabber, tracker, box_around(cfg.dialog_end))
+    before_menu = probe(grabber, tracker, cfg.menu_region)
+    input_ctl.press_key(cfg.talk_key, delay_after=0.2)
+    if not wait_changed(grabber, tracker, yes_box, before_yes, timeout=2.0):
+        publish("warn", "Sen's dialogue did not appear - stand at Blacksmith Sen, "
+                        f"or check the talk key ({cfg.talk_key})")
+        return 0
+    # The dialogue tweens in; a click during the tween is ignored, so give it
+    # a beat, and give Yes a second try before calling it a failure.
+    time.sleep(settle)
+    for _ in range(2):
+        input_ctl.click(cfg.dialog_yes, delay_after=settle)
+        if wait_changed(grabber, tracker, cfg.menu_region, before_menu,
+                        timeout=2.5, min_change=0.15):
+            break
+    else:
+        input_ctl.tap_escape()
+        _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
+        publish("warn", "craft menu did not open after Yes")
+        return 0
+
+    # The menu answers refusals just above its own top edge, not on the
+    # banner strip: "You do not have the requirements to craft this item!"
+    strip = Region(cfg.menu_region.x1, cfg.menu_region.y1 - 70,
+                   cfg.menu_region.x2, cfg.menu_region.y1)
+    counter = cfg.craft_counter_region
+
+    def counter_is(colour: str, timeout: float) -> bool:
+        deadline = time.monotonic() + timeout
+        while True:
+            frame = grabber.grab_region(tracker, counter)
+            if (red_fraction(frame) if colour == "red" else green_fraction(frame)) > 0.03:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.08)
+
+    input_ctl.click(cfg.craft_recipe, delay_after=settle)
+    if not counter_is("red", 1.5) and not counter_is("green", 0.2):
+        _close_menu(input_ctl, grabber, tracker, cfg, settle)
+        _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
+        publish("warn", "recipe row did not select - the N/M counter never appeared")
+        return 0
+
+    publish("info", "crafting bait at Sen")
+    crafted = 0
+    out_of_fish = False
+    try:
+        while crafted < CRAFT_CEILING:
+            # Fill the slot. + opens a list of eligible fish beside the menu;
+            # clicking its first row moves that fish in. The row is waited
+            # for, not assumed: + is a toggle, so a click that opened nothing
+            # gets one more try before the fish are declared gone.
+            pick_box = box_around(cfg.craft_pick)
+            for _ in range(4):                  # no recipe needs more fish than this
+                if counter_is("green", 0.1):
+                    break
+                opened = False
+                for _ in range(2):
+                    before_pick = probe(grabber, tracker, pick_box)
+                    input_ctl.click(cfg.craft_add, delay_after=0.1)
+                    opened = wait_changed(grabber, tracker, pick_box, before_pick, timeout=1.5)
+                    if opened or red_fraction(grabber.grab_region(tracker, strip)) > 0.02:
+                        break
+                if not opened:
+                    out_of_fish = True
+                    break
+                input_ctl.click(cfg.craft_pick, delay_after=settle)
+                if not counter_is("green", 1.5) and not counter_is("red", 0.1):
+                    break
+                # Two-fish recipes come back red with 1/2: loop and add another.
+            if out_of_fish or not counter_is("green", 0.1):
+                break
+            craft_at = wait_for_green(grabber, tracker, cfg.craft_button, 120, 50, timeout=0.6)
+            if craft_at is None:
+                publish("warn", "CRAFT button not found near its anchor")
+                break
+            input_ctl.click(craft_at, delay_after=0.1)
+            if not counter_is("red", 2.5):
+                publish("warn", "CRAFT click had no effect - stopping")
+                break
+            crafted += 1
+            time.sleep(settle)
+    finally:
+        _close_menu(input_ctl, grabber, tracker, cfg, settle)
+        _end_conversation(input_ctl, grabber, tracker, cfg, before_end, settle)
+
+    if crafted:
+        publish("info", f"crafted {crafted} bait" + (", fish used up" if out_of_fish else ""))
+    elif out_of_fish:
+        publish("info", "no fish to craft bait from")
+    else:
+        publish("warn", "crafted nothing - the material counter never turned green")
+    return crafted
+
+
+def _close_menu(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+                cfg: BaitConfig, settle: float) -> None:
+    while_open = probe(grabber, tracker, cfg.menu_region)
+    input_ctl.click(cfg.craft_close, delay_after=settle)
+    if not wait_changed(grabber, tracker, cfg.menu_region, while_open,
+                        timeout=1.5, min_change=0.3):
+        input_ctl.tap_escape()
+
+
+def _end_conversation(input_ctl: InputController, grabber: ScreenGrabber,
+                      tracker: WindowTracker, cfg: BaitConfig, before: np.ndarray,
+                      settle: float) -> None:
+    """Click the "..." bubble Sen leaves behind, but only if it is there:
+    with nothing under the cursor that click is a cast at the dock."""
+    if wait_changed(grabber, tracker, box_around(cfg.dialog_end), before, timeout=1.0):
+        input_ctl.click(cfg.dialog_end, delay_after=settle)
+
+
+def buy_bait(input_ctl: InputController, grabber: ScreenGrabber, tracker: WindowTracker,
+             cfg: BaitConfig, banner: Region, publish: Publish) -> bool:
+    """Hold the barrel's key, type an amount, confirm. Returns True if bought.
+
+    Typing is the dangerous step - with no text box focused it goes to the
+    game - so it is gated behind proof that the quantity box appeared where it
+    was calibrated, and checked again afterwards.
+    """
+    missing = _missing(cfg, ["shop_quantity", "shop_confirm"])
+    if missing:
+        _warn_once(publish, "auto-buy is on but not calibrated: "
+                            f"{', '.join(missing)} (Calibration tab)")
+        return False
+
+    settle = max(0.1, cfg.menu_delay)
+    qty_box = box_around(cfg.shop_quantity)
+    before = probe(grabber, tracker, qty_box)
+    input_ctl.hold_key(cfg.shop_key, cfg.shop_hold, delay_after=0.2)
+    if not wait_changed(grabber, tracker, qty_box, before, timeout=2.0):
+        publish("warn", "the barrel's dialog did not appear - stand at the bait barrel, "
+                        f"or check the shop key ({cfg.shop_key})")
+        return False
+
+    untyped = probe(grabber, tracker, qty_box)
+    input_ctl.click(cfg.shop_quantity, delay_after=0.2)
+    input_ctl.type_text(str(max(1, cfg.buy_amount)), delay_after=settle)
+    if not wait_changed(grabber, tracker, qty_box, untyped, timeout=1.0, min_change=0.02):
+        input_ctl.tap_escape()
+        publish("warn", "the amount did not show up in the quantity box - nothing bought")
+        return False
+
+    open_dialog = probe(grabber, tracker, qty_box)
+    input_ctl.click(cfg.shop_confirm, delay_after=settle)
+    refused = banner.valid() and red_fraction(grabber.grab_region(tracker, banner)) > 0.02
+    if refused:
+        publish("warn", "purchase refused - not enough Peli, or the stack is full")
+    else:
+        publish("info", f"bought {cfg.buy_amount} bait")
+
+    # Only click Cancel on a dialog that is still there; on the dock it is a cast.
+    if not wait_changed(grabber, tracker, qty_box, open_dialog, timeout=1.0):
+        if cfg.shop_cancel:
+            input_ctl.click(cfg.shop_cancel, delay_after=settle)
+        else:
+            input_ctl.tap_escape()
+    return not refused
+
+
+def select_bait(input_ctl: InputController, cfg: BaitConfig, publish: Publish) -> None:
+    """Click the tier's row in the rod's bait panel. GPO drops the selection."""
+    if not cfg.bait_select:
+        _warn_once(publish, "bait row not calibrated - the rod may fish on the wrong bait "
+                            "(Calibration tab)")
+        return
+    input_ctl.click(cfg.bait_select, delay_after=0.2)
+
+
+def prompt_visible(grabber: ScreenGrabber, template: np.ndarray) -> bool:
+    frame = grabber.grab_full()
+    th, tw = template.shape[:2]
+    if frame.shape[0] < th or frame.shape[1] < tw:
+        return False
+    score, _ = match_template(frame, template)
+    return score >= PROMPT_MATCH
+
+
+@contextmanager
+def walked_to_sen(input_ctl: InputController, grabber: ScreenGrabber, cfg: BaitConfig,
+                  publish: Publish) -> Iterator[bool]:
+    """Walk until Sen's T badge is on screen; walk back on the way out.
+
+    The leg in is closed-loop, so it always ends at the same place: where the
+    prompt first shows. The leg back copies the time it took. That re-derives
+    the fishing spot from a fixed point every pass, instead of a fixed timing
+    that drifts a little further each one. Walking back happens even if the
+    prompt never showed, and even if the craft raised.
+    """
+    if not cfg.walk_to_sen:
+        yield True
+        return
+    template = _load_template(cfg.prompt_template)
+    if template is None:
+        _warn_once(publish, "walk to Sen is on but the prompt badge is not snipped "
+                            "(Calibration tab)")
+        yield False
+        return
+
+    # The return leg copies the time the leg in took, which only lands on the
+    # same spot if both legs move at the same speed. GPO's Auto Run breaks
+    # that: it switches to a sprint partway through a held direction, so a
+    # short leg walks and a long one runs, and the copy overshoots - off the
+    # dock and into the sea.
+    _warn_once(publish, "walking to Sen: GPO's Auto Run must be OFF (Menu > Settings), "
+                        "or the return leg overshoots into the sea")
+    arrived = False
+    started = time.monotonic()
+    input_ctl.press_keys(cfg.walk_keys)
+    try:
+        while time.monotonic() - started < max(0.5, cfg.max_walk):
+            if prompt_visible(grabber, template):
+                arrived = True
+                break
+            time.sleep(0.1)
+    finally:
+        input_ctl.release_keys(cfg.walk_keys)
+    took = time.monotonic() - started
+    if arrived:
+        publish("info", f"walked to Sen in {took:.1f}s")
+    else:
+        publish("warn", f"walked {took:.1f}s and Sen's prompt never showed - walking back")
+    try:
+        yield arrived
+    finally:
+        input_ctl.hold_key(cfg.return_keys, took * max(0.1, cfg.return_scale), delay_after=0.3)
+        if arrived and prompt_visible(grabber, template):
+            publish("warn", "still at Sen after walking back - check the return keys")
 
 
 def reset_template_cache() -> None:

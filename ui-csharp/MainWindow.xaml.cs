@@ -18,11 +18,7 @@ namespace GpoMacro;
 public partial class MainWindow : Window
 {
     private static readonly string[] BaitShopPoints =
-        { "open bait shop", "buy common bait", "confirm (if any)", "close shop" };
-
-    private static readonly string[] BaitCraftPoints =
-        { "open crafting menu", "select recipe", "select amount (optional)",
-          "craft button", "confirm (if any)", "close menu" };
+        { "the quantity box in the barrel's dialog", "Confirm", "Cancel (optional)" };
 
     private readonly MainViewModel _model = new();
     private readonly Engine _engine = new();
@@ -538,19 +534,112 @@ public partial class MainWindow : Window
 
     private void BaitShop_Click(object sender, RoutedEventArgs e) =>
         _ = PickBaitAsync(BaitShopPoints,
-            new[] { "shop_open", "shop_buy_common", "shop_confirm", "shop_close" },
-            "bait shop");
+            new[] { "shop_quantity", "shop_confirm", "shop_cancel" }, "barrel");
 
-    private void BaitCraft_Click(object sender, RoutedEventArgs e) =>
-        _ = PickBaitAsync(BaitCraftPoints,
-            new[] { "craft_open", "craft_select_recipe", "craft_select_amount",
-                    "craft_button", "craft_confirm", "craft_close" },
-            "crafting");
+    private void BaitCraft_Click(object sender, RoutedEventArgs e) => _ = CraftWizardAsync();
 
-    private async Task PickBaitAsync(string[] labels, string[] attrs, string what)
+    /// <summary>Sen's menu, one game state at a time.
+    ///
+    /// The craft points are never all on screen together: Yes lives in the
+    /// dialogue, the fish list only exists after + is clicked, the ... bubble
+    /// only after the X. The overlay covers the game while it is up, so each
+    /// step first tells the user how to get the game into the right state,
+    /// waits for OK, then picks only what that state shows. Every point is
+    /// verified on screen before the engine clicks it, so one a little off
+    /// reports "did not appear" rather than clicking into the dock.</summary>
+    private async Task CraftWizardAsync()
+    {
+        const string bait = "bait";
+        if (!Step("Step 1 of 5 - the dialogue",
+                "Stand at Blacksmith Sen and press T so his \"are you interested?\" " +
+                "dialogue is up. Leave it open and click OK.")) return;
+        if (!await PickBaitAsync(new[] { "the Yes button" }, new[] { "dialog_yes" },
+                "dialogue")) return;
+
+        if (!Step("Step 2 of 5 - the menu",
+                "Click Yes, then click your bait's row (Rare or Legendary Fish Bait) so a " +
+                "red 0/N counter shows under the + slot. Leave it like that and click OK.\n\n" +
+                "You will pick four points, then drag two boxes.")) return;
+        if (!await PickBaitAsync(
+                new[] { "your bait's row", "the + slot", "anywhere on the green CRAFT button",
+                        "the red X" },
+                new[] { "craft_recipe", "craft_add", "craft_button", "craft_close" },
+                "menu")) return;
+        if (!await RegionAsync(bait, "menu_region",
+                "Drag a box over the whole of Sen's craft menu. It only has to cover most of it.",
+                "craft menu region set")) return;
+        if (!await RegionAsync(bait, "craft_counter_region",
+                "Drag a tight box around the red 0/N counter under the + slot - just the " +
+                "number, not the + itself.", "material counter set")) return;
+
+        if (!Step("Step 3 of 5 - the fish list",
+                "Click the + slot once so the list of your eligible fish opens beside the " +
+                "menu (you need at least one fish of that tier). Leave it open and click OK."))
+            return;
+        if (!await PickBaitAsync(new[] { "the first fish in the list" }, new[] { "craft_pick" },
+                "fish list")) return;
+
+        if (!Step("Step 4 of 5 - closing",
+                "Click + again to close the list, then click the red X. Sen's \"...\" bubble " +
+                "stays at the bottom of the screen - leave it there and click OK.")) return;
+        if (!await PickBaitAsync(new[] { "the ... bubble" }, new[] { "dialog_end" },
+                "bubble")) return;
+
+        if (!Step("Step 5 of 5 - the bait row",
+                "Click the ... bubble to end the conversation, then hold your fishing rod " +
+                "so the Fishing Baits panel shows. Click OK.")) return;
+        if (!await PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel" },
+                new[] { "bait_select" }, "bait row")) return;
+
+        _model.AddLog("info", "crafting calibrated - turn on Auto-craft in Settings");
+    }
+
+    /// <summary>Tell the user how to set the game up for the next pick. The box
+    /// only blocks this window, so they can go and do it, then come back.</summary>
+    private bool Step(string title, string instructions) =>
+        MessageBox.Show(this, instructions, title, MessageBoxButton.OKCancel,
+            MessageBoxImage.None) == MessageBoxResult.OK;
+
+    private void BaitRow_Click(object sender, RoutedEventArgs e) =>
+        _ = PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel (rod held)" },
+            new[] { "bait_select" }, "bait row");
+
+    private void BaitMenu_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+        "bait", "menu_region",
+        "Drag a box over the whole of Sen's craft menu. It only has to cover most of it.",
+        "craft menu region set");
+
+    private void BaitCounter_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+        "bait", "craft_counter_region",
+        "Drag a tight box around the N/M counter under the + slot - the red 0/1 that " +
+        "turns green when it is filled. Just the number, not the + itself.",
+        "material counter set");
+
+    private void BaitPrompt_Click(object sender, RoutedEventArgs e) => _ = BaitPromptAsync();
+
+    private async Task BaitPromptAsync()
+    {
+        var region = await PickRegionAsync(
+            "Drag a box around the white T key badge on Sen's prompt - just the badge");
+        if (region is null) return;
+        var (x1, y1, x2, y2) = region.Value;
+        var path = _config.GetProperty("bait").GetProperty("prompt_template").GetString();
+        var reply = await _engine.CallAsync("save_template",
+            new Dictionary<string, object?>
+                { ["x1"] = x1, ["y1"] = y1, ["x2"] = x2, ["y2"] = y2, ["path"] = path });
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "prompt badge"); return; }
+        _model.AddLog("info",
+            $"prompt badge saved ({result.GetProperty("width").GetInt32()}x" +
+            $"{result.GetProperty("height").GetInt32()})");
+        await ReloadConfigAsync();
+    }
+
+    /// <summary>Pick the labelled points and store them. True only if every
+    /// one was picked, so a wizard stops where the user stopped.</summary>
+    private async Task<bool> PickBaitAsync(string[] labels, string[] attrs, string what)
     {
         var origin = await ClientOriginAsync();
-        if (origin is null) return;
+        if (origin is null) return false;
         var picked = OverlayWindow.PickPoints(this, labels);
         var (ox, oy) = origin.Value;
 
@@ -564,6 +653,7 @@ public partial class MainWindow : Window
 
         await PatchAsync("bait", patch);
         _model.AddLog("info", $"{what} points saved: {picked.Count}/{labels.Length}");
+        return picked.Count == labels.Length;
     }
 
     private void FruitTemplate_Click(object sender, RoutedEventArgs e) => _ = FruitTemplateAsync();
@@ -587,25 +677,26 @@ public partial class MainWindow : Window
         await ReloadConfigAsync();
     }
 
-    private void FruitHotbar_Click(object sender, RoutedEventArgs e) => _ = FruitRegionAsync(
-        "hotbar_region",
+    private void FruitHotbar_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+        "fruit", "hotbar_region",
         "Drag across the whole hotbar row. Fruits are found by position inside this box and " +
         "equipped by clicking, so the box only has to contain every slot - it does not need " +
         "to line up with them.",
         "hotbar row set");
 
-    private void FruitBanner_Click(object sender, RoutedEventArgs e) => _ = FruitRegionAsync(
-        "banner_region",
-        "Drag a box over the top-of-screen banner strip, where 'New Item' and " +
-        "'You can only store one of each fruit!' appear",
+    private void FruitBanner_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+        "fruit", "banner_region",
+        "Drag a box over the top-of-screen banner strip, where 'New Item', " +
+        "'You can only store one of each fruit!' and Sen's 'no eligible materials' appear",
         "banner strip set");
 
-    private async Task FruitRegionAsync(string attr, string instructions, string done)
+    private async Task<bool> RegionAsync(string objectName, string attr, string instructions,
+                                         string done)
     {
         var region = await PickRegionAsync(instructions);
-        if (region is null) return;
+        if (region is null) return false;
         var (x1, y1, x2, y2) = region.Value;
-        await PatchAsync("fruit", new Dictionary<string, object?>
+        await PatchAsync(objectName, new Dictionary<string, object?>
         {
             [attr] = new Dictionary<string, object?>
             {
@@ -613,6 +704,7 @@ public partial class MainWindow : Window
             },
         });
         _model.AddLog("info", $"{done} ({x2 - x1}x{y2 - y1})");
+        return true;
     }
 
     private void FruitStore_Click(object sender, RoutedEventArgs e) => _ = FruitStoreAsync();
@@ -665,6 +757,27 @@ public partial class MainWindow : Window
             Row("banner", RegionSize(fruit.GetProperty("banner_region"))),
             Row("store", Point(fruit.GetProperty("store_point"))),
         });
+
+        var bait = _config.GetProperty("bait");
+        var badge = bait.GetProperty("prompt_template").GetString() ?? "";
+        var badgePath = Path.IsPathRooted(badge) ? badge : Path.Combine(_engine.RepoRoot, badge);
+        _model.BaitLines = string.Join("\n", new[]
+        {
+            Row("craft", PointsSet(bait, "dialog_yes", "craft_recipe", "craft_add", "craft_pick",
+                                   "craft_button", "craft_close", "dialog_end")),
+            Row("menu", RegionSize(bait.GetProperty("menu_region"))),
+            Row("counter", RegionSize(bait.GetProperty("craft_counter_region"))),
+            Row("bait row", Point(bait.GetProperty("bait_select"))),
+            Row("barrel", PointsSet(bait, "shop_quantity", "shop_confirm")),
+            Row("T badge", File.Exists(badgePath) ? badge : ""),
+        });
+    }
+
+    /// <summary>"3/5 points" for a click sequence, or "" if none are set.</summary>
+    private static string PointsSet(JsonElement group, params string[] attrs)
+    {
+        var set = attrs.Count(a => group.GetProperty(a).GetArrayLength() >= 2);
+        return set == 0 ? "" : $"{set}/{attrs.Length} points";
     }
 
     private static string Row(string name, string detail) =>

@@ -47,6 +47,7 @@ class BarReading:
     track_bottom: int
     target_y: float = 0.0
     overlap: bool = False
+    fish_coasted: bool = False   # the line was not seen; seg_center_y is prev_fish_y
 
     def __post_init__(self) -> None:
         if not self.target_y:
@@ -177,14 +178,18 @@ def find_bar(frame_bgr: np.ndarray, cfg: DetectionConfig,
     max_tick = max(6, (pill_bottom - pill_top) // 12)
     fish_runs = [r for r in _group_runs(other, max_gap=2) if r[1] - r[0] + 1 <= max_tick]
 
+    coasted = False
     if fish_runs:
         reference = prev_fish_y if prev_fish_y is not None else marker_y
         seg_top_s, seg_bottom_s = min(
             fish_runs, key=lambda r: abs((r[0] + r[1]) / 2.0 - reference))
     elif prev_fish_y is not None:
         # Marker briefly unreadable (flash, overlap animation): coast on the
-        # last sighting rather than reporting the whole gauge as gone.
+        # last sighting rather than reporting the whole gauge as gone. The
+        # caller bounds how long - fed back in unbounded, a lost line becomes
+        # a fish frozen at one y for the rest of the fight.
         seg_top_s = seg_bottom_s = int(prev_fish_y)
+        coasted = True
     else:
         return None
     seg_center = (seg_top_s + seg_bottom_s) / 2.0
@@ -198,6 +203,7 @@ def find_bar(frame_bgr: np.ndarray, cfg: DetectionConfig,
         track_top=int(pill_top), track_bottom=int(pill_bottom),
         target_y=seg_center,
         overlap=bool(bar_top <= seg_center <= bar_bottom),
+        fish_coasted=coasted,
     )
 
 

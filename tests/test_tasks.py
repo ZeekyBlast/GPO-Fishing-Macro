@@ -1,4 +1,4 @@
-"""Self-check for devil-fruit storage. No game, no network, no clicks.
+"""Self-check for devil-fruit storage and bait upkeep. No game, no clicks.
 
 Run: python tests/test_tasks.py
 """
@@ -6,9 +6,11 @@ import paths  # noqa: F401  - puts the project root on sys.path
 
 import numpy as np
 
-from gpo_macro.config import FruitConfig, Region
-from gpo_macro.tasks import (changed_fraction, classify_banner, find_green_prompt,
-                             fruit_positions, red_fraction, store_fruits)
+from gpo_macro.config import BaitConfig, FruitConfig, Region
+from gpo_macro.tasks import (box_around, buy_bait, changed_fraction, classify_banner,
+                             craft_bait, find_green_prompt, fruit_positions,
+                             green_fraction, red_fraction, store_fruits, upkeep_bait,
+                             walked_to_sen)
 
 # ---------------------------------------------------------------- fixtures
 
@@ -254,3 +256,335 @@ store_fruits(input_ctl, FakeScreen(cfg, ["3"], []), None, cfg, "1",
 assert input_ctl.clicks == [] and input_ctl.keys == [], input_ctl.keys
 
 print("all fruit-storage checks passed")
+
+
+# =========================================================== bait upkeep
+
+PLANKS = (120, 60, 30)
+RED_TEXT = (60, 70, 235)
+GREEN_TEXT = (70, 220, 80)
+OUT_OF_FISH = banner(RED_TEXT)              # "You dont have any eligible materials to add!"
+
+assert green_fraction(banner(GREEN_TEXT)) > 0.03
+assert green_fraction(banner(RED_TEXT)) == 0.0
+assert green_fraction(banner()) == 0.0
+
+
+def bait_config(**kw):
+    base = dict(auto_craft=True, menu_delay=0.0,
+                dialog_yes=[400, 300], menu_region=Region(50, 50, 650, 750),
+                craft_recipe=[120, 400], craft_add=[500, 200], craft_pick=[900, 120],
+                craft_counter_region=Region(480, 230, 540, 250),
+                craft_button=[500, 700], craft_close=[640, 60], dialog_end=[350, 900],
+                bait_select=[900, 500],
+                shop_quantity=[400, 320], shop_confirm=[300, 420], shop_cancel=[500, 420],
+                buy_amount=100, shop_hold=0.0, walk_to_sen=False, max_walk=0.5)
+    base.update(kw)
+    return BaitConfig(**base)
+
+
+BANNER = Region(0, 0, 480, 36)
+
+
+class CraftInput(FakeInput):
+    """Everything the upkeep routines can do to the keyboard, recorded."""
+
+    def __init__(self, screen):
+        super().__init__(screen)
+        self.typed, self.holds, self.down = [], [], []
+
+    def tap_escape(self, delay_after=0.0):
+        self.keys.append("esc")
+        self.screen.on_key("esc")
+
+    def hold_key(self, names, seconds, delay_after=0.0):
+        self.holds.append((names, round(seconds, 2)))
+        self.screen.on_hold(names, seconds)
+
+    def press_keys(self, names):
+        self.down.append(("down", names))
+        self.screen.on_key(names)
+
+    def release_keys(self, names=None):
+        self.down.append(("up", names))
+
+    def type_text(self, text, delay_after=0.0):
+        self.typed.append(text)
+        self.screen.on_type(text)
+
+
+class SenScreen:
+    """Blacksmith Sen, as the routine sees him.
+
+    T opens the dialogue, Yes opens the menu, + toggles a list of eligible
+    fish beside the menu, clicking a row moves that fish into the slot, CRAFT
+    consumes a full slot, the red X closes. The material counter is red until
+    the slot is full and green after, and a red line appears just above the
+    menu when + is pressed with no fish left - all read, never counted.
+    """
+
+    def __init__(self, cfg, fish, need=1, prompt=True, walk_steps=0):
+        self.cfg, self.fish, self.need, self.prompt = cfg, fish, need, prompt
+        self.dialog = self.menu = self.selected = self.talking = False
+        self.picker = self.error = False
+        self.slot = self.crafted = 0
+        self.banner = EMPTY
+        self.steps_to_sen = walk_steps     # grab_full calls before the badge shows
+        self.badge = None
+
+    def on_key(self, name):
+        if name == self.cfg.talk_key and self.prompt and not self.talking:
+            self.dialog = self.talking = True
+        elif name == "esc":
+            self.dialog = self.menu = False
+
+    def on_hold(self, names, seconds):
+        pass
+
+    def on_type(self, text):
+        pass
+
+    def on_click(self, point):
+        cfg = self.cfg
+        if self.dialog and point == tuple(cfg.dialog_yes):
+            self.dialog, self.menu = False, True
+        elif self.talking and not self.menu and point == tuple(cfg.dialog_end):
+            self.talking = False                  # the "..." bubble; HUD comes back
+        elif not self.menu:
+            return
+        elif point == tuple(cfg.craft_recipe):
+            self.selected = True
+        elif point == tuple(cfg.craft_add) and self.selected:
+            if self.picker:
+                self.picker = False
+            elif self.fish > 0:
+                self.picker = True
+            else:
+                self.error = True
+        elif self.picker and abs(point[0] - cfg.craft_pick[0]) < 40 \
+                and abs(point[1] - cfg.craft_pick[1]) < 40:
+            if self.fish > 0 and self.slot < self.need:
+                self.fish -= 1
+                self.slot += 1
+        elif abs(point[0] - cfg.craft_button[0]) < 130 and abs(point[1] - cfg.craft_button[1]) < 60:
+            if self.slot == self.need:
+                self.crafted += 1
+                self.slot = 0
+                self.picker = False
+        elif point == tuple(cfg.craft_close):
+            self.menu = False
+
+    def grab_region(self, tracker, region):
+        cfg = self.cfg
+        if region == BANNER:
+            return self.banner
+        if region == box_around(cfg.dialog_yes):
+            return np.full((48, 48, 3), (30, 30, 30) if self.dialog else PLANKS, np.uint8)
+        if region == box_around(cfg.dialog_end):
+            return np.full((48, 48, 3), (30, 30, 30) if self.talking else PLANKS, np.uint8)
+        if region == cfg.menu_region:
+            return np.full((region.height(), region.width(), 3),
+                           (25, 25, 25) if self.menu else PLANKS, np.uint8)
+        if region == cfg.craft_counter_region:
+            frame = np.full((region.height(), region.width(), 3), (25, 25, 25), np.uint8)
+            if self.menu and self.selected:
+                frame[6:14, 10:50] = GREEN_TEXT if self.slot == self.need else RED_TEXT
+            return frame
+        strip = Region(cfg.menu_region.x1, cfg.menu_region.y1 - 70,
+                       cfg.menu_region.x2, cfg.menu_region.y1)
+        if region == strip:
+            frame = np.full((region.height(), region.width(), 3), PLANKS, np.uint8)
+            if self.error:
+                frame[20:40, 100:600] = RED_TEXT
+            return frame
+        frame = np.full((region.height(), region.width(), 3), PLANKS, np.uint8)
+        h, w = frame.shape[:2]
+        centre_x = (region.x1 + region.x2) // 2
+        if self.menu and abs(centre_x - cfg.craft_button[0]) < 5:
+            frame[h // 2 - 15:h // 2 + 15, w // 2 - 60:w // 2 + 60] = (60, 190, 70)  # CRAFT
+        if region == box_around(cfg.craft_pick):
+            return np.full((48, 48, 3), (30, 30, 30) if self.menu and self.picker else PLANKS,
+                           np.uint8)
+        return frame
+
+    def grab_full(self):
+        frame = np.full((300, 400, 3), PLANKS, np.uint8)
+        if self.steps_to_sen <= 0 and self.badge is not None:
+            frame[100:100 + self.badge.shape[0], 200:200 + self.badge.shape[1]] = self.badge
+        self.steps_to_sen -= 1
+        return frame
+
+
+def craft(fish, need=1, prompt=True, **kw):
+    cfg = bait_config(**kw)
+    screen = SenScreen(cfg, fish, need, prompt=prompt)
+    input_ctl = CraftInput(screen)
+    events = []
+    made = craft_bait(input_ctl, screen, None, cfg, BANNER,
+                      lambda kind, message, **data: events.append((kind, message)))
+    return made, input_ctl, screen, events
+
+
+# Three legendary fish, one each: crafts three, stops on the red banner, closes.
+made, input_ctl, screen, events = craft(fish=3)
+assert made == 3 and screen.crafted == 3, (made, screen.crafted, events)
+assert screen.fish == 0 and not screen.menu, (screen.fish, screen.menu)
+assert not screen.talking, "the ... bubble was left up - T would do nothing next pass"
+# 3 opens, then the one the red line answers - no toggle retry after a refusal.
+assert input_ctl.clicks.count(tuple(bait_config().craft_add)) == 4, input_ctl.clicks
+assert screen.error, "never asked + with no fish left"
+assert "esc" not in input_ctl.keys, input_ctl.keys                # closed by the X
+assert any("crafted 3" in m for _k, m in events), events
+
+# Rare bait needs two fish per craft: five fish make two, the odd one stays.
+made, input_ctl, screen, events = craft(fish=5, need=2)
+assert made == 2 and screen.fish + screen.slot == 1, (made, screen.fish, screen.slot, events)
+
+# No fish at all: nothing crafted, said plainly, menu still closed.
+made, input_ctl, screen, events = craft(fish=0)
+assert made == 0 and not screen.menu
+assert any("no fish" in m for _k, m in events), events
+
+# Sen not in range: T does nothing, so Yes is never clicked - that click would
+# be a cast into the dock.
+made, input_ctl, screen, events = craft(fish=3, prompt=False)
+assert made == 0 and input_ctl.clicks == [], input_ctl.clicks
+assert any("did not appear" in m for _k, m in events), events
+
+# Not calibrated: one warning, no input at all.
+made, input_ctl, screen, events = craft(fish=3, craft_add=[])
+assert made == 0 and input_ctl.keys == [] and input_ctl.clicks == []
+assert any("not calibrated" in m and "craft add" in m for _k, m in events), events
+
+
+# ------------------------------------------------------------- the walk
+
+BADGE = np.full((30, 30, 3), (235, 235, 235), np.uint8)
+BADGE[8:22, 13:17] = (40, 40, 40)                         # the T's stem
+BADGE[8:12, 8:22] = (40, 40, 40)                          # its bar
+PROMPT = str(paths.scratch() / "prompt_t.png")
+cv2.imwrite(PROMPT, BADGE)
+reset_template_cache()
+
+
+def walk(steps, body_raises=False, **kw):
+    kw = dict(walk_to_sen=True, prompt_template=PROMPT, walk_keys="w+d",
+              return_keys="s+a", return_scale=1.0) | kw
+    cfg = bait_config(**kw)
+    screen = SenScreen(cfg, fish=0, walk_steps=steps)
+    screen.badge = BADGE
+    input_ctl = CraftInput(screen)
+    events = []
+    arrived = None
+    try:
+        with walked_to_sen(input_ctl, screen, cfg,
+                           lambda kind, message, **data: events.append((kind, message))) as there:
+            arrived = there
+            screen.steps_to_sen = 99          # walking back: the badge leaves the screen
+            if body_raises:
+                raise RuntimeError("craft blew up")
+    except RuntimeError:
+        pass
+    return arrived, input_ctl, events
+
+
+# Walks until the badge shows, then walks back for as long as that took.
+arrived, input_ctl, events = walk(steps=3)
+assert arrived is True, events
+assert input_ctl.down == [("down", "w+d"), ("up", "w+d")], input_ctl.down
+assert len(input_ctl.holds) == 1 and input_ctl.holds[0][0] == "s+a", input_ctl.holds
+assert 0.15 <= input_ctl.holds[0][1] <= 0.6, input_ctl.holds     # ~3 polls at 0.1 s
+
+# The prompt never shows: gives up at max_walk, still walks back, says so.
+arrived, input_ctl, events = walk(steps=999, max_walk=0.5)
+assert arrived is False
+assert input_ctl.down[-1] == ("up", "w+d") and input_ctl.holds[0][0] == "s+a", input_ctl
+assert any("never showed" in m for _k, m in events), events
+
+# The craft raising must not leave the character standing at Sen.
+arrived, input_ctl, events = walk(steps=1, body_raises=True)
+assert arrived is True and input_ctl.holds and input_ctl.holds[0][0] == "s+a", input_ctl.holds
+
+# Walking off means no leg at all.
+arrived, input_ctl, events = walk(steps=0, walk_to_sen=False)
+assert arrived is True and input_ctl.down == [] and input_ctl.holds == []
+
+
+# --------------------------------------------------------------- the buy
+
+class BarrelScreen(SenScreen):
+    """The bait barrel: hold the key and a dialog with a quantity box appears."""
+
+    def __init__(self, cfg, opens=True, refuses=False):
+        super().__init__(cfg, fish=0)
+        self.opens, self.refuses = opens, refuses
+        self.open = False
+        self.text = ""
+
+    def on_hold(self, names, seconds):
+        if names == self.cfg.shop_key and self.opens:
+            self.open = True
+
+    def on_type(self, text):
+        if self.open:
+            self.text += text
+
+    def on_click(self, point):
+        if self.open and point == tuple(self.cfg.shop_confirm):
+            self.banner = banner(RED_TEXT) if self.refuses else EMPTY
+            self.open = False                # the dialog closes itself on Confirm
+
+    def grab_region(self, tracker, region):
+        if region == BANNER:
+            return self.banner
+        if region == box_around(self.cfg.shop_quantity):
+            frame = np.full((48, 48, 3), (30, 30, 30) if self.open else PLANKS, np.uint8)
+            if self.text:
+                frame[20:28, 8:8 + 4 * len(self.text)] = (235, 235, 235)
+            return frame
+        return np.full((region.height(), region.width(), 3), PLANKS, np.uint8)
+
+
+def buy(opens=True, refuses=False, **kw):
+    cfg = bait_config(auto_craft=False, auto_buy=True, **kw)
+    screen = BarrelScreen(cfg, opens, refuses)
+    input_ctl = CraftInput(screen)
+    events = []
+    ok = buy_bait(input_ctl, screen, None, cfg, BANNER,
+                  lambda kind, message, **data: events.append((kind, message)))
+    return ok, input_ctl, screen, events
+
+
+ok, input_ctl, screen, events = buy()
+assert ok and screen.text == "100", (ok, screen.text, events)
+# The dialog closed itself on Confirm, so Cancel is not clicked - on the dock that is a cast.
+assert tuple(bait_config().shop_cancel) not in input_ctl.clicks, input_ctl.clicks
+assert "esc" not in input_ctl.keys
+
+# Not at the barrel: nothing is typed. Typing with no box focused goes to the game.
+ok, input_ctl, screen, events = buy(opens=False)
+assert not ok and input_ctl.typed == [] and input_ctl.clicks == [], (input_ctl.typed, input_ctl.clicks)
+
+ok, input_ctl, screen, events = buy(refuses=True)
+assert not ok and any("refused" in m for _k, m in events), events
+
+
+# -------------------------------------------------------- one mode at a time
+
+cfg = bait_config(auto_buy=True, auto_craft=True)
+screen = SenScreen(cfg, fish=3)
+input_ctl = CraftInput(screen)
+events = []
+upkeep_bait(input_ctl, screen, None, cfg, BANNER,
+            lambda kind, message, **data: events.append((kind, message)))
+assert input_ctl.keys == [] and input_ctl.clicks == [], (input_ctl.keys, input_ctl.clicks)
+assert any("both on" in m for _k, m in events), events
+
+# Craft alone ends by putting the bait back on the rod.
+cfg = bait_config()
+screen = SenScreen(cfg, fish=1)
+input_ctl = CraftInput(screen)
+upkeep_bait(input_ctl, screen, None, cfg, BANNER, lambda *a, **k: None)
+assert input_ctl.clicks[-1] == tuple(cfg.bait_select), input_ctl.clicks
+
+print("test_tasks: ok")

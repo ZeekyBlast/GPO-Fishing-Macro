@@ -61,6 +61,7 @@ class InputController:
         self.mouse = MouseController()
         self.keyboard = KbController()
         self._mouse_held = False
+        self._held_keys: set[str] = set()
 
     # ------------------------------------------------------------- helpers
 
@@ -86,12 +87,22 @@ class InputController:
         self.mouse.position = (float(sx), float(sy))
 
     def click(self, point: Sequence[int], delay_after: float = 0.1, double: bool = False) -> None:
-        px, py = int(point[0]), int(point[1])
-        self.move_to(px + random.randint(-2, 2), py + random.randint(-2, 2))
-        self._jittered_delay(0.05)
+        px, py = int(point[0]) + random.randint(-2, 2), int(point[1]) + random.randint(-2, 2)
+        # Roblox GUI buttons want to see the cursor arrive, then hover a few
+        # frames, then a press that lasts longer than a frame. Measured against
+        # Sen's menu: a teleport with a 50 ms hover and 30 ms press was ignored,
+        # a short glide in with 400/120 took every time. Menus are not on the
+        # hot path, so the extra half second costs nothing.
+        sx, sy = self.mouse.position
+        ox, oy = self.tracker.origin
+        for step in range(1, 7):
+            self.move_to(int((sx - ox) + (px - (sx - ox)) * step / 6),
+                         int((sy - oy) + (py - (sy - oy)) * step / 6))
+            time.sleep(0.015)
+        self._jittered_delay(0.4)
         for _ in range(2 if double else 1):
             self.mouse.press(Button.left)
-            time.sleep(0.03)
+            time.sleep(0.12)
             self.mouse.release(Button.left)
         self._jittered_delay(delay_after)
 
@@ -162,3 +173,39 @@ class InputController:
 
     def tap_escape(self, delay_after: float = 0.2) -> None:
         self.press_key("esc", delay_after)
+
+    # Held keys are how the character walks. A "w+d" string holds both.
+    # Anything still down when the bot stops or panics is released by
+    # release_keys() with no argument - a stuck D walks the character off the
+    # dock and into the sea for as long as nobody is looking.
+
+    def press_keys(self, names: str) -> None:
+        for name in names.split("+"):
+            name = name.strip()
+            if name:
+                self.keyboard.press(parse_key(name))
+                self._held_keys.add(name)
+
+    def release_keys(self, names: str | None = None) -> None:
+        targets = [n.strip() for n in names.split("+")] if names else list(self._held_keys)
+        for name in targets:
+            try:
+                self.keyboard.release(parse_key(name))
+            except Exception:
+                pass
+            self._held_keys.discard(name)
+
+    def hold_key(self, names: str, seconds: float, delay_after: float = 0.1) -> None:
+        """Hold for a fixed time - proximity prompts and walking legs."""
+        self.press_keys(names)
+        try:
+            time.sleep(max(0.0, seconds))
+        finally:
+            self.release_keys(names)
+        self._jittered_delay(delay_after)
+
+    def type_text(self, text: str, delay_after: float = 0.1) -> None:
+        """Type into a focused text box. Callers must have proven the box is
+        there first: with nothing focused this goes straight into Roblox chat."""
+        self.keyboard.type(text)
+        self._jittered_delay(delay_after)
