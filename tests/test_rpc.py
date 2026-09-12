@@ -73,8 +73,9 @@ def main() -> int:
         print("ping ok")
 
         tick = read_until(proc, lambda f: f.get("t") == "tick")
-        for key in ("running", "state", "stats", "window", "webhook", "region_valid"):
+        for key in ("running", "state", "stats", "window", "webhook", "region_valid", "fault"):
             assert key in tick, f"tick missing {key}"
+        assert tick["fault"] in (None, "no_window", "no_gauge", "window_lost", "webhook_failed")
         assert tick["running"] is False and tick["state"] == "idle"
         print(f"tick ok - state={tick['state']} window={bool(tick['window'])}")
 

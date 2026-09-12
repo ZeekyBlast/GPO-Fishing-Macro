@@ -52,6 +52,7 @@ class FishingBot(threading.Thread):
         self._toggle_pause = threading.Event()
 
         self.state = State.IDLE
+        self.stop_reason = ""       # "window_lost" when the window vanished mid-session
         self._tracker = WindowTracker()
         self._input: InputController | None = None
 
@@ -180,12 +181,22 @@ class FishingBot(threading.Thread):
     # ------------------------------------------------------------- handlers
 
     def _check_focus(self) -> None:
-        if not self.cfg.fishing.pause_on_focus_lost or self.state == State.PAUSED:
-            return
-        if self.state in (State.FOCUS,):
+        if self.state in (State.FOCUS, State.PAUSED):
             return
         info = self._tracker.refresh()
-        if info is None or not is_foreground(info.hwnd):
+        if info is None:
+            # Gone, not merely behind something: nothing to resume into. Stop
+            # rather than pause, and say what was kept - that is the user's
+            # real question.
+            self._release_mouse_safely()
+            self.stop_reason = "window_lost"
+            self._publish("error", "Roblox window disappeared - stopped. Mouse released; "
+                                   "session stats and the scan region are kept.")
+            self._stop_event.set()
+            return
+        if not self.cfg.fishing.pause_on_focus_lost:
+            return
+        if not is_foreground(info.hwnd):
             self._release_mouse_safely()
             self._paused_from = self.state
             self._set_state(State.PAUSED)

@@ -103,11 +103,22 @@
                                    Foreground="{StaticResource Faint}"
                                    TextTrimming="CharacterEllipsis"
                                    Text="{Binding WindowLine}" />
-                        <TextBlock Grid.Column="1" Grid.Row="1" VerticalAlignment="Top"
-                                   Margin="0,3,0,0" TextWrapping="Wrap"
-                                   FontFamily="{StaticResource Sans}"
-                                   FontSize="{StaticResource SizeLabel}"
-                                   Text="{Binding Hint}" Foreground="{Binding HintBrush}" />
+                        <!-- The hint, and beside it the fault's own fix when
+                             there is one to press. -->
+                        <DockPanel Grid.Column="1" Grid.Row="1" VerticalAlignment="Top"
+                                   Margin="0,3,0,0">
+                            <Button DockPanel.Dock="Right" Style="{StaticResource QuietButton}"
+                                    Content="{Binding RecoveryLabel}" Click="Recovery_Click"
+                                    MinHeight="24" Padding="9,2" Margin="10,0,0,0"
+                                    FontSize="{StaticResource SizeLabel}"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding HasRecovery,
+                                        Converter={StaticResource BoolToVisible}}" />
+                            <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
+                                       FontFamily="{StaticResource Sans}"
+                                       FontSize="{StaticResource SizeLabel}"
+                                       Text="{Binding Hint}" Foreground="{Binding HintBrush}" />
+                        </DockPanel>
 
                         <StackPanel Grid.Column="2" Grid.RowSpan="2" Orientation="Horizontal"
                                     VerticalAlignment="Center" Margin="18,0,0,0">

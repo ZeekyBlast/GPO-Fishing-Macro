@@ -76,6 +76,31 @@ public sealed class MainViewModel : Observable
     private bool _canPause;
     public bool CanPause { get => _canPause; set => Set(ref _canPause, value); }
 
+    // ------------------------------------------------------------------ faults
+
+    /// <summary>The engine's fault key, or null. Every fault names its own fix,
+    /// and the fix is reachable from where the fault appears: the recovery
+    /// button sits beside the hint. Tags name the handler.</summary>
+    private string? _fault;
+    public string? Fault
+    {
+        get => _fault;
+        private set { if (Set(ref _fault, value)) Raise(nameof(NoGauge)); }
+    }
+
+    public bool NoGauge => _fault == "no_gauge";
+
+    private string _recoveryLabel = "";
+    public string RecoveryLabel
+    {
+        get => _recoveryLabel;
+        set { if (Set(ref _recoveryLabel, value)) Raise(nameof(HasRecovery)); }
+    }
+    public bool HasRecovery => _recoveryLabel.Length > 0;
+    public string RecoveryTag { get; private set; } = "";
+
+    private string _lastWindowLine = "";
+
     // --------------------------------------------------------------- counters
 
     private string _caught = "-";
@@ -251,7 +276,14 @@ public sealed class MainViewModel : Observable
     public CalibrationSection[] Calibration => new[] { Region, Colours, Bait, Fruit };
 
     private string _calibrationSummary = "";
-    public string CalibrationSummary { get => _calibrationSummary; set => Set(ref _calibrationSummary, value); }
+    public string CalibrationSummary
+    {
+        get => _cannotVerify ? "No Roblox window, so nothing here can be re-run or tested."
+                             : _calibrationSummary;
+        set { if (Set(ref _calibrationSummary, value)) { } }
+    }
+
+    private bool _cannotVerify;
 
     // The proof rail: what the macro sees, beside the cards that set it.
     public Reading RailWindow { get; } = new("window");
@@ -302,13 +334,30 @@ public sealed class MainViewModel : Observable
         StateWord = state.ToUpperInvariant();
         StateBrush = Palette.FromHex(_stateColours.GetValueOrDefault(state), "Faint");
 
+        var fault = tick.TryGetProperty("fault", out var faultElement)
+                    && faultElement.ValueKind == JsonValueKind.String
+            ? faultElement.GetString() : null;
+        var faultChanged = fault != Fault;
+        Fault = fault;
+
         var hasWindow = tick.TryGetProperty("window", out var window)
                         && window.ValueKind == JsonValueKind.Object;
-        WindowLine = hasWindow
-            ? $"\"{window.GetProperty("title").GetString()}\"  " +
-              $"{window.GetProperty("width").GetInt32()}x{window.GetProperty("height").GetInt32()}" +
-              $"  at ({window.GetProperty("left").GetInt32()},{window.GetProperty("top").GetInt32()})"
+        if (hasWindow)
+            _lastWindowLine =
+                $"\"{window.GetProperty("title").GetString()}\"  " +
+                $"{window.GetProperty("width").GetInt32()}x{window.GetProperty("height").GetInt32()}" +
+                $"  at ({window.GetProperty("left").GetInt32()},{window.GetProperty("top").GetInt32()})";
+        // A lost window keeps its last geometry on screen, prefixed "was":
+        // no fault blanks a reading the user still needs.
+        WindowLine = hasWindow ? _lastWindowLine
+            : fault == "window_lost" && _lastWindowLine.Length > 0 ? "was " + _lastWindowLine
             : "no Roblox window";
+
+        if (fault == "window_lost")
+        {
+            StateWord = "STOPPED";
+            StateBrush = Palette.Named("Red");
+        }
 
         // The hint is the empty state: it says what to do, never just "idle".
         var regionValid = tick.GetProperty("region_valid").GetBoolean();
@@ -323,12 +372,38 @@ public sealed class MainViewModel : Observable
             _ => (state, Palette.Named("Muted")),
         };
 
+        // A fault overrides the hint and brings its fix along.
+        (RecoveryLabel, RecoveryTag) = ("", "");
+        switch (fault)
+        {
+            case "window_lost":
+                (Hint, HintBrush) = ("Roblox window disappeared. Mouse released; stats and the " +
+                                     "scan region are kept.", Palette.Named("Amber"));
+                (RecoveryLabel, RecoveryTag) = ("Recheck window", "recheck");
+                break;
+            case "no_gauge":
+                (Hint, HintBrush) = ("The last detection test found no gauge. Test again with the " +
+                                     "gauge on screen, or re-sample the colours.", Palette.Named("Amber"));
+                (RecoveryLabel, RecoveryTag) = ("Open Calibration", "calibration");
+                break;
+        }
+
         StartLabel = running ? "Stop" : "Start";
         StartBrush = Palette.Named(running ? "Amber" : "Green");
         CanPause = running;
 
-        DashboardDot = Palette.Named(running ? "Green" : "LineStrong");
-        CalibrationDot = Palette.Named(regionValid ? "LineStrong" : "Amber");
+        DashboardDot = Palette.Named(running ? "Green"
+            : fault is "window_lost" or "no_gauge" or "no_window" ? "Amber" : "LineStrong");
+        CalibrationDot = Palette.Named(regionValid && fault != "no_gauge" ? "LineStrong" : "Amber");
+
+        // No window means nothing can be re-run or tested: the cards say so
+        // instead of pretending to know.
+        if (_cannotVerify != !hasWindow)
+        {
+            _cannotVerify = !hasWindow;
+            foreach (var card in Calibration) card.CannotVerify = _cannotVerify;
+            Raise(nameof(CalibrationSummary));
+        }
         RobloxReading.Show(hasWindow
             ? $"{window.GetProperty("width").GetInt32()}x{window.GetProperty("height").GetInt32()}" +
               $" ({window.GetProperty("left").GetInt32()},{window.GetProperty("top").GetInt32()})"
@@ -352,6 +427,8 @@ public sealed class MainViewModel : Observable
 
         ApplyTelemetry(tick, running);
         ApplyWebhook(tick);
+        // Fishing is fine; only the log carries this one.
+        if (faultChanged && fault == "webhook_failed") AddLog("error", $"webhook: {WebhookLine}");
         PreviewNote = livePreview ? "" : "preview off";
         if (!livePreview) Preview = null;
     }

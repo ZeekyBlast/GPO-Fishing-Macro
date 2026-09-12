@@ -122,6 +122,25 @@ def main():
     bot._do_maintenance(FakeGrabber(quiet, icon))
     assert bot._input.clicks == [] and bot._input.mouse.position == WATER
 
+    # The window vanishing mid-fight is a stop, not a pause: mouse released,
+    # reason recorded for the shell, and the pause-on-focus setting is not
+    # consulted (there is nothing to resume into).
+    class Gone:
+        def refresh(self):
+            return None
+
+    bot = FishingBot(AppConfig(), Stats(), EventBus())
+    bot.cfg.fishing.pause_on_focus_lost = False
+    bot._input = FakeInput()
+    bot._input.mouse_held = True
+    bot._input.release_mouse = lambda: setattr(bot._input, "mouse_held", False)
+    bot._input.release_keys = lambda names=None: None
+    bot._tracker = Gone()
+    bot.state = State.REEL
+    bot._check_focus()
+    assert bot.stop_reason == "window_lost" and bot._stop_event.is_set(), bot.stop_reason
+    assert not bot._input.mouse_held, "mouse still held after the window vanished"
+
     print("all fisher checks passed")
 
 

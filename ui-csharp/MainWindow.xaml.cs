@@ -41,6 +41,10 @@ public partial class MainWindow : Window
         DataContext = _model;
 
         _model.Log.CollectionChanged += ScrollLogToEnd;
+        _model.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainViewModel.NoGauge)) RefreshCalibrationReadouts();
+        };
         _engine.Frame += OnFrame;
         _engine.Fault += OnFault;
 
@@ -553,6 +557,26 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>The fault's own fix, from where the fault appears.</summary>
+    private async void Recovery_Click(object sender, RoutedEventArgs e)
+    {
+        switch (_model.RecoveryTag)
+        {
+            case "recheck":
+                var reply = await _engine.CallAsync("recheck_window");
+                if (!Ok(reply, out var result)) { ReportFailure(reply, "recheck"); return; }
+                _model.AddLog(result.GetProperty("found").GetBoolean() ? "info" : "warn",
+                    result.GetProperty("found").GetBoolean()
+                        ? "Roblox window found again - ready to start"
+                        : "still no Roblox window - launch GPO, then recheck");
+                break;
+            case "calibration":
+                _model.SelectedScreen = MainViewModel.CalibrationScreen;
+                _model.Region.IsOpen = true;
+                break;
+        }
+    }
+
     private void CalToggle_Click(object sender, RoutedEventArgs e)
     {
         if ((sender as FrameworkElement)?.DataContext is CalibrationSection card)
@@ -818,14 +842,23 @@ public partial class MainWindow : Window
         _model.Region.Readout = valid
             ? $"region  ({rx1},{ry1}) - ({rx2},{ry2})\nsize    {size}\n{testLine}"
             : "not set - run auto-detect with the gauge on screen";
+        // The engine remembers a failed test or auto-detect across the shell's
+        // own record, so either says Failed.
+        var noGauge = _model.NoGauge || _lastTest is { Found: false };
         _model.Region.Show(
             !valid ? CalibrationState.NotSet
-            : _lastTest is { Found: false } ? CalibrationState.Failed
+            : noGauge ? CalibrationState.Failed
             : CalibrationState.Set,
-            _lastTest is { Found: false }
+            noGauge
                 ? "The test found no run of gauge blue tall enough to be the bar. Start a " +
-                  "minigame so the gauge is up and test again, or re-sample the colours below."
+                  "minigame so the gauge is up and test again. If the gauge was up, the blue " +
+                  "was sampled off the sea - re-sample it from inside the gauge."
                 : "");
+        if (noGauge && valid) _model.Colours.FaultText =
+            "If the region is right and the test still fails, this blue is the reason: " +
+            "re-sample it from inside the gauge, not the sea. Widening the tolerance " +
+            "cannot fix a wrong colour.";
+        else _model.Colours.FaultText = "";
 
         var detection = _config.GetProperty("detection");
         var blue = detection.GetProperty("bar_blue");
@@ -892,10 +925,10 @@ public partial class MainWindow : Window
             },
             baitOn || fruitOn ? "Text2" : "Faint");
 
-        var set = _model.Calibration.Count(c => c.State == CalibrationState.Set);
+        var set = _model.Calibration.Count(c => c.BaseState == CalibrationState.Set);
         _model.CalibrationSummary =
             !valid ? "The scan region is not set, so nothing can fish yet."
-            : _model.Region.State == CalibrationState.Failed
+            : _model.Region.BaseState == CalibrationState.Failed
                 ? "Set, but the last test could not read the gauge."
             : $"{Words[set]} of four set. Bait upkeep and fruit storage are optional and " +
               $"{(baitOn, fruitOn) switch { (true, true) => "on", (false, false) => "off", _ => "one is on" }}.";

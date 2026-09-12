@@ -274,7 +274,18 @@ public sealed class CalibrationSection : Observable
     public CalibrationAction[] Extras { get; }
 
     private CalibrationState _state;
-    public CalibrationState State => _state;
+    public CalibrationState State => _cannotVerify ? CalibrationState.Unverifiable : _state;
+
+    /// <summary>What the config says, window or no window.</summary>
+    public CalibrationState BaseState => _state;
+
+    /// <summary>No Roblox window: whatever is stored, nothing can be checked.</summary>
+    private bool _cannotVerify;
+    public bool CannotVerify
+    {
+        get => _cannotVerify;
+        set { if (_cannotVerify != value) { _cannotVerify = value; Show(_state, _faultText); } }
+    }
 
     private string _readout = "";
     public string Readout { get => _readout; set => Set(ref _readout, value); }
@@ -320,7 +331,7 @@ public sealed class CalibrationSection : Observable
             Raise(name);
     }
 
-    public string Mark => _state switch
+    public string Mark => State switch
     {
         CalibrationState.Set => "set",
         CalibrationState.Failed => "set \u00b7 test failed",
@@ -328,7 +339,7 @@ public sealed class CalibrationSection : Observable
         _ => IsOptional ? "not set \u00b7 optional" : "not set",
     };
 
-    public Brush MarkBrush => Palette.Named(_state switch
+    public Brush MarkBrush => Palette.Named(State switch
     {
         CalibrationState.Set => "Green",
         CalibrationState.Failed => "Red",
@@ -337,11 +348,11 @@ public sealed class CalibrationSection : Observable
     });
 
     /// <summary>Optional and unset is demoted, not hidden.</summary>
-    public Brush TitleBrush => Palette.Named(IsOptional && _state == CalibrationState.NotSet ? "Muted" : "Text");
-    public Brush ReadoutBrush => Palette.Named(_state == CalibrationState.NotSet ? "Faint" : "Text2");
-    public Brush ThumbEdge => Palette.Named(_state == CalibrationState.Set ? "GreenDim" : "Line");
-    public string FaultWord => _state == CalibrationState.Failed ? "why" : "note";
-    public Brush FaultBrush => Palette.Named(_state == CalibrationState.Failed ? "Red" : "Amber");
+    public Brush TitleBrush => Palette.Named(IsOptional && State == CalibrationState.NotSet ? "Muted" : "Text");
+    public Brush ReadoutBrush => Palette.Named(State == CalibrationState.NotSet ? "Faint" : "Text2");
+    public Brush ThumbEdge => Palette.Named(State == CalibrationState.Set ? "GreenDim" : "Line");
+    public string FaultWord => State == CalibrationState.Failed ? "why" : "note";
+    public Brush FaultBrush => Palette.Named(State == CalibrationState.Failed ? "Red" : "Amber");
 }
 
 /// <summary>A checkbox spans the row; everything else is label plus field.</summary>

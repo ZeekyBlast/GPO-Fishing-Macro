@@ -55,6 +55,10 @@ class Engine:
         self.bot: Optional[FishingBot] = None
 
         self._tracker = WindowTracker()
+
+        self._window_lost = False   # sticky until recheck or restart
+
+        self._no_gauge = False      # sticky until a test passes
         self._grabber: Optional[ScreenGrabber] = None   # lazily made on the command thread
         self._out = sys.stdout
         self._out_lock = threading.Lock()
@@ -155,6 +159,9 @@ class Engine:
         state = self.bot.state.value if running else State.IDLE.value
         info = self._tracker.refresh()
         status = self.notifier.status()
+        if self.bot and not running and self.bot.stop_reason == "window_lost":
+            self._window_lost = True
+            self.bot.stop_reason = ""
         payload: dict[str, Any] = {
             "t": "tick",
             "running": running,
@@ -165,6 +172,7 @@ class Engine:
                         "width": info.right - info.left, "height": info.bottom - info.top}
                        if info else None),
             "region_valid": self.cfg.scan_region.valid(),
+            "fault": self._fault(info, status),
             "webhook": {"configured": status.configured, "sent": status.sent,
                         "failed": status.failed, "dropped": status.dropped,
                         "suppressed": status.suppressed, "queued": status.queued,
@@ -174,6 +182,21 @@ class Engine:
         if preview is not None:
             payload["preview"] = preview
         return payload
+
+    def _fault(self, info, status) -> Optional[str]:
+        """One fault at a time, worst first. A fault never clears itself
+        silently: window_lost waits for a recheck or a restart, no_gauge for a
+        test that passes, and the live ones for the state to actually change."""
+        if self._window_lost:
+            return "window_lost"
+        if info is None:
+            return "no_window"
+        if self._no_gauge:
+            return "no_gauge"
+        if status.configured and status.failed > 0 \
+                and not status.last_result.startswith("delivered"):
+            return "webhook_failed"
+        return None
 
     def _preview_png(self, running: bool) -> Optional[str]:
         now = time.monotonic()
@@ -216,6 +239,7 @@ class Engine:
             return {"started": False, "reason": "already running"}
         if not self.cfg.scan_region.valid():
             return {"started": False, "reason": "scan region not calibrated"}
+        self._window_lost = False
         self.bot = FishingBot(self.cfg, self.stats, self.bus)
         self.bot.start()
         return {"started": True}
@@ -286,8 +310,16 @@ class Engine:
                 "left": info.left, "top": info.top,
                 "width": info.right - info.left, "height": info.bottom - info.top}
 
+    def cmd_recheck_window(self, _req) -> dict:
+        """The window_lost recovery: found again means the fault is over."""
+        info = self._tracker.refresh()
+        if info is not None:
+            self._window_lost = False
+        return {"found": info is not None}
+
     def cmd_auto_calibrate(self, _req) -> dict:
         result = vision.auto_calibrate(self.grabber(), self._tracker, self.cfg.detection)
+        self._no_gauge = result.region is None
         if result.region is not None:
             self.cfg.scan_region = result.region
             self.store.update()
@@ -304,6 +336,7 @@ class Engine:
             raise ValueError("set a scan region first")
         frame = self.grabber().grab_region(self._tracker, self.cfg.scan_region)
         reading = vision.find_bar(frame, self.cfg.detection)
+        self._no_gauge = reading is None
         out = Path("test_detection.png").resolve()
         cv2.imwrite(str(out), vision.annotate(frame, reading))
         if reading is not None:
