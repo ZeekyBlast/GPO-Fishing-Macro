@@ -34,3 +34,8 @@ dist/
 .pyproject/
 *.egg-info/
 build/
+.claude/
+
+# Design exports dropped in the repo root
+First-run experience redesign/
+First-run experience redesign.zip
