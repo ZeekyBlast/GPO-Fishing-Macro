@@ -11,6 +11,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace GpoMacro;
@@ -108,7 +109,9 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _scrollQueued = false;
-            if (_model.Log.Count > 0) LogList.ScrollIntoView(_model.Log[^1]);
+            if (_model.Log.Count == 0) return;
+            LogList.ScrollIntoView(_model.Log[^1]);
+            RailLogList.ScrollIntoView(_model.Log[^1]);
         }));
     }
 
@@ -465,8 +468,6 @@ public partial class MainWindow : Window
                 result.GetProperty("origin_y").GetInt32());
     }
 
-    private void AutoDetect_Click(object sender, RoutedEventArgs e) => _ = AutoDetectAsync();
-
     private async Task AutoDetectAsync()
     {
         var reply = await _engine.CallAsync("auto_calibrate", timeoutSeconds: 60);
@@ -478,8 +479,6 @@ public partial class MainWindow : Window
                       result.GetProperty("message").GetString() ?? "");
         await ReloadConfigAsync();
     }
-
-    private void DragRegion_Click(object sender, RoutedEventArgs e) => _ = DragRegionAsync();
 
     private async Task DragRegionAsync()
     {
@@ -514,52 +513,76 @@ public partial class MainWindow : Window
         AdoptConfig(result.GetProperty("config"));
     }
 
-    private void TestDetection_Click(object sender, RoutedEventArgs e) => _ = TestDetectionAsync();
-
     private async Task TestDetectionAsync()
     {
         var reply = await _engine.CallAsync("test_detection");
         if (!Ok(reply, out var result)) { ReportFailure(reply, "detection test"); return; }
-        var path = result.GetProperty("path").GetString() ?? "";
-        _model.AddLog("info",
-            $"detection test: {result.GetProperty("detail").GetString()} - saved {path}");
-        try
-        {
-            System.Diagnostics.Process.Start(
-                new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Exception)
-        {
-            // No image viewer associated; the path in the log is enough.
-        }
+        var found = result.GetProperty("found").GetBoolean();
+        var detail = result.GetProperty("detail").GetString() ?? "";
+        _lastTest = (DateTime.Now, found, detail);
+        _model.AddLog(found ? "info" : "warn",
+            $"detection test: {detail} - saved {result.GetProperty("path").GetString()}");
+        RefreshCalibrationReadouts();
     }
 
-    private void SampleColour_Click(object sender, RoutedEventArgs e)
+    /// <summary>Every calibration button lands here; the tag says which.</summary>
+    private void CalAction_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: string attr }) _ = SampleColourAsync(attr);
+        var tag = (sender as FrameworkElement)?.Tag as string;
+        _ = tag switch
+        {
+            "test" => TestDetectionAsync(),
+            "auto" => AutoDetectAsync(),
+            "drag" => DragRegionAsync(),
+            "resample" => ResampleBothAsync(),
+            "blue" => SampleColourAsync("bar_blue"),
+            "black" => SampleColourAsync("track_gray"),
+            "craft" => CraftWizardAsync(),
+            "menu" => BaitMenuAsync(),
+            "counter" => BaitCounterAsync(),
+            "row" => BaitRowAsync(),
+            "barrel" => PickBaitAsync(BaitShopPoints,
+                new[] { "shop_quantity", "shop_confirm", "shop_cancel" }, "barrel"),
+            "badge" => BaitPromptAsync(),
+            "storage" => StorageWizardAsync(),
+            "icon" => FruitTemplateAsync(),
+            "hotbar" => FruitHotbarAsync(),
+            "banner" => FruitBannerAsync(),
+            "store" => FruitStoreAsync(),
+            _ => Task.CompletedTask,
+        };
     }
 
-    private async Task SampleColourAsync(string attr)
+    private void CalToggle_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is CalibrationSection card)
+            card.IsOpen = !card.IsOpen;
+    }
+
+    private void CalMore_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is CalibrationSection card)
+            card.IsMoreOpen = !card.IsMoreOpen;
+    }
+
+    private async Task<bool> SampleColourAsync(string attr)
     {
         var origin = await ClientOriginAsync();
-        if (origin is null) return;
-        var points = OverlayWindow.PickPoints(this, new[] { "the colour to sample" });
-        if (points.Count == 0) return;
+        if (origin is null) return false;
+        var what = attr == "bar_blue" ? "the gauge's blue, inside the gauge"
+                                      : "the bar's black, on the bar itself";
+        var points = OverlayWindow.PickPoints(this, new[] { what });
+        if (points.Count == 0) return false;
         var (x, y) = points.Values.First();
         var (ox, oy) = origin.Value;
         var reply = await _engine.CallAsync("sample_color",
             new Dictionary<string, object?> { ["x"] = x - ox, ["y"] = y - oy, ["attr"] = attr });
-        if (!Ok(reply, out var result)) { ReportFailure(reply, "colour sample"); return; }
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "colour sample"); return false; }
         var rgb = result.GetProperty("rgb").EnumerateArray().Select(v => v.GetInt32()).ToArray();
         _model.AddLog("info", $"{attr} set to RGB ({rgb[0]}, {rgb[1]}, {rgb[2]})");
         await ReloadConfigAsync();
+        return true;
     }
-
-    private void BaitShop_Click(object sender, RoutedEventArgs e) =>
-        _ = PickBaitAsync(BaitShopPoints,
-            new[] { "shop_quantity", "shop_confirm", "shop_cancel" }, "barrel");
-
-    private void BaitCraft_Click(object sender, RoutedEventArgs e) => _ = CraftWizardAsync();
 
     /// <summary>Sen's menu, one game state at a time.
     ///
@@ -623,22 +646,20 @@ public partial class MainWindow : Window
         MessageBox.Show(this, instructions, title, MessageBoxButton.OKCancel,
             MessageBoxImage.None) == MessageBoxResult.OK;
 
-    private void BaitRow_Click(object sender, RoutedEventArgs e) =>
-        _ = PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel (rod held)" },
+    private Task<bool> BaitRowAsync() =>
+        PickBaitAsync(new[] { "your bait's row in the Fishing Baits panel (rod held)" },
             new[] { "bait_select" }, "bait row");
 
-    private void BaitMenu_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+    private Task<bool> BaitMenuAsync() => RegionAsync(
         "bait", "menu_region",
         "Drag a box over the whole of Sen's craft menu. It only has to cover most of it.",
         "craft menu region set");
 
-    private void BaitCounter_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+    private Task<bool> BaitCounterAsync() => RegionAsync(
         "bait", "craft_counter_region",
         "Drag a tight box around the N/M counter under the + slot - the red 0/1 that " +
         "turns green when it is filled. Just the number, not the + itself.",
         "material counter set");
-
-    private void BaitPrompt_Click(object sender, RoutedEventArgs e) => _ = BaitPromptAsync();
 
     private async Task BaitPromptAsync()
     {
@@ -679,35 +700,50 @@ public partial class MainWindow : Window
         return picked.Count == labels.Length;
     }
 
-    private void FruitTemplate_Click(object sender, RoutedEventArgs e) => _ = FruitTemplateAsync();
-
-    private async Task FruitTemplateAsync()
+    private async Task<bool> FruitTemplateAsync()
     {
         var region = await PickRegionAsync(
             "Drag a box around the devil fruit icon - just the icon, not the whole slot");
         if (region is null)
         {
             _model.AddLog("info", "fruit icon snip cancelled");
-            return;
+            return false;
         }
         var (x1, y1, x2, y2) = region.Value;
         var reply = await _engine.CallAsync("save_template",
             new Dictionary<string, object?> { ["x1"] = x1, ["y1"] = y1, ["x2"] = x2, ["y2"] = y2 });
-        if (!Ok(reply, out var result)) { ReportFailure(reply, "fruit icon"); return; }
+        if (!Ok(reply, out var result)) { ReportFailure(reply, "fruit icon"); return false; }
         _model.AddLog("info",
             $"fruit icon saved ({result.GetProperty("width").GetInt32()}x" +
             $"{result.GetProperty("height").GetInt32()})");
         await ReloadConfigAsync();
+        return true;
     }
 
-    private void FruitHotbar_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+    /// <summary>The four fruit picks in the order the macro uses them. Stops
+    /// where the user stops.</summary>
+    private async Task StorageWizardAsync()
+    {
+        if (!await FruitTemplateAsync()) return;
+        if (!await FruitHotbarAsync()) return;
+        if (!await FruitBannerAsync()) return;
+        await FruitStoreAsync();
+    }
+
+    private async Task ResampleBothAsync()
+    {
+        if (!await SampleColourAsync("bar_blue")) return;
+        await SampleColourAsync("track_gray");
+    }
+
+    private Task<bool> FruitHotbarAsync() => RegionAsync(
         "fruit", "hotbar_region",
         "Drag across the whole hotbar row. Fruits are found by position inside this box and " +
         "equipped by clicking, so the box only has to contain every slot - it does not need " +
         "to line up with them.",
         "hotbar row set");
 
-    private void FruitBanner_Click(object sender, RoutedEventArgs e) => _ = RegionAsync(
+    private Task<bool> FruitBannerAsync() => RegionAsync(
         "fruit", "banner_region",
         "Drag a box over the top-of-screen banner strip, where 'New Item', " +
         "'You can only store one of each fruit!' and Sen's 'no eligible materials' appear",
@@ -730,8 +766,6 @@ public partial class MainWindow : Window
         return true;
     }
 
-    private void FruitStore_Click(object sender, RoutedEventArgs e) => _ = FruitStoreAsync();
-
     private async Task FruitStoreAsync()
     {
         var origin = await ClientOriginAsync();
@@ -750,6 +784,8 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------- calibration readouts
 
+    private (DateTime At, bool Found, string Detail)? _lastTest;
+
     private void RefreshCalibrationReadouts()
     {
         if (!_haveConfig) return;
@@ -758,44 +794,91 @@ public partial class MainWindow : Window
         var (rx1, ry1) = (region.GetProperty("x1").GetInt32(), region.GetProperty("y1").GetInt32());
         var (rx2, ry2) = (region.GetProperty("x2").GetInt32(), region.GetProperty("y2").GetInt32());
         var valid = rx2 > rx1 && ry2 > ry1;
-        _model.RegionLine = valid
-            ? $"({rx1},{ry1}) - ({rx2},{ry2})   {rx2 - rx1} x {ry2 - ry1}"
+        var size = $"{rx2 - rx1} x {ry2 - ry1}";
+        _model.RegionReading.Show(valid ? $"{size} \u00b7 set" : "not set", valid ? "Green" : "Amber");
+        _model.RailRegion.Show(valid ? $"region ({rx1},{ry1}) - ({rx2},{ry2})" : "region not set",
+                               valid ? "Text2" : "Amber");
+
+        // The last test capture is the region's thumbnail and the rail's
+        // proof. The engine writes it beside main.py; a stale one still shows
+        // what the region looked like last time.
+        var capturePath = Path.Combine(_engine.RepoRoot, "test_detection.png");
+        var capture = LoadImage(capturePath);
+        _model.TestCapture = capture;
+        _model.TestCaptureTag = valid ? size : "";
+        _model.Region.Thumb = capture is null ? null : new ImageBrush(capture) { Stretch = Stretch.Uniform };
+        _model.Region.ThumbTag = capture is null ? "" : "last test";
+
+        var testLine = _lastTest is { } t
+            ? (t.Found ? $"tested {Ago(t.At)}, bar and fish read" : $"tested {Ago(t.At)}, {t.Detail}")
+            : capture is not null ? $"last test {Ago(File.GetLastWriteTime(capturePath))}"
+            : "never tested";
+        _model.RailTest.Show(testLine,
+            _lastTest is { Found: false } ? "Red" : _lastTest is { Found: true } ? "Green" : "Faint");
+        _model.Region.Readout = valid
+            ? $"region  ({rx1},{ry1}) - ({rx2},{ry2})\nsize    {size}\n{testLine}"
             : "not set - run auto-detect with the gauge on screen";
-        _model.RegionBrush = Palette.Named(valid ? "Text2" : "Amber");
-        _model.RegionReading.Show(valid ? $"{rx2 - rx1} x {ry2 - ry1} · set" : "not set",
-                                  valid ? "Green" : "Amber");
+        _model.Region.Show(
+            !valid ? CalibrationState.NotSet
+            : _lastTest is { Found: false } ? CalibrationState.Failed
+            : CalibrationState.Set,
+            _lastTest is { Found: false }
+                ? "The test found no run of gauge blue tall enough to be the bar. Start a " +
+                  "minigame so the gauge is up and test again, or re-sample the colours below."
+                : "");
 
         var detection = _config.GetProperty("detection");
-        _model.ColourLines =
-            $"gauge blue  RGB {Triple(detection.GetProperty("bar_blue"))}\n" +
-            $"bar black   RGB {Triple(detection.GetProperty("track_gray"))}\n" +
-            $"tolerance   +/- {detection.GetProperty("color_tolerance").GetInt32()} per channel";
+        var blue = detection.GetProperty("bar_blue");
+        var black = detection.GetProperty("track_gray");
+        var tolerance = detection.GetProperty("color_tolerance").GetInt32();
+        _model.Colours.Readout =
+            $"gauge blue  RGB {Triple(blue)}\n" +
+            $"bar black   RGB {Triple(black)}\n" +
+            $"tolerance   +/- {tolerance} per channel";
+        _model.Colours.Thumb = new LinearGradientBrush(new GradientStopCollection
+        {
+            new(Rgb(blue), 0), new(Rgb(blue), 0.5), new(Rgb(black), 0.5), new(Rgb(black), 1),
+        }, 0);
+        _model.Colours.ThumbTag = "sampled";
+        _model.Colours.Show(CalibrationState.Set);
+        _model.RailColours.Show(
+            $"blue {Triple(blue).Replace(" ", "")} \u00b7 bar {Triple(black).Replace(" ", "")}", "Text2");
 
         var fruit = _config.GetProperty("fruit");
         var template = fruit.GetProperty("template_path").GetString() ?? "";
         var templatePath = Path.IsPathRooted(template)
             ? template : Path.Combine(_engine.RepoRoot, template);
-        _model.FruitLines = string.Join("\n", new[]
+        var fruitParts = new[]
         {
-            Row("icon", File.Exists(templatePath) ? template : ""),
-            Row("hotbar", RegionSize(fruit.GetProperty("hotbar_region"))),
-            Row("banner", RegionSize(fruit.GetProperty("banner_region"))),
-            Row("store", Point(fruit.GetProperty("store_point"))),
+            File.Exists(templatePath) ? template : "",
+            RegionSize(fruit.GetProperty("hotbar_region")),
+            RegionSize(fruit.GetProperty("banner_region")),
+            Point(fruit.GetProperty("store_point")),
+        };
+        _model.Fruit.Readout = string.Join("\n", new[]
+        {
+            Row("icon", fruitParts[0]), Row("hotbar", fruitParts[1]),
+            Row("banner", fruitParts[2]), Row("store", fruitParts[3]),
         });
+        _model.Fruit.Show(fruitParts.All(p => p.Length > 0) ? CalibrationState.Set : CalibrationState.NotSet);
 
         var bait = _config.GetProperty("bait");
         var badge = bait.GetProperty("prompt_template").GetString() ?? "";
         var badgePath = Path.IsPathRooted(badge) ? badge : Path.Combine(_engine.RepoRoot, badge);
-        _model.BaitLines = string.Join("\n", new[]
+        var craft = PointsSet(bait, "dialog_yes", "craft_recipe", "craft_add", "craft_pick",
+                              "craft_button", "craft_close", "dialog_end");
+        var barrel = PointsSet(bait, "shop_quantity", "shop_confirm");
+        _model.Bait.Readout = string.Join("\n", new[]
         {
-            Row("craft", PointsSet(bait, "dialog_yes", "craft_recipe", "craft_add", "craft_pick",
-                                   "craft_button", "craft_close", "dialog_end")),
+            Row("craft", craft),
             Row("menu", RegionSize(bait.GetProperty("menu_region"))),
             Row("counter", RegionSize(bait.GetProperty("craft_counter_region"))),
             Row("bait row", Point(bait.GetProperty("bait_select"))),
-            Row("barrel", PointsSet(bait, "shop_quantity", "shop_confirm")),
+            Row("barrel", barrel),
             Row("T badge", File.Exists(badgePath) ? badge : ""),
         });
+        _model.Bait.Show(craft.StartsWith("7/") || barrel.StartsWith("2/")
+            ? CalibrationState.Set : CalibrationState.NotSet);
 
         var baitOn = bait.GetProperty("auto_craft").GetBoolean() || bait.GetProperty("auto_buy").GetBoolean();
         var fruitOn = fruit.GetProperty("auto_store").GetBoolean();
@@ -803,11 +886,58 @@ public partial class MainWindow : Window
             (baitOn, fruitOn) switch
             {
                 (true, true) => "bait, fruit on",
-                (true, false) => "bait on · fruit off",
-                (false, true) => "bait off · fruit on",
+                (true, false) => "bait on \u00b7 fruit off",
+                (false, true) => "bait off \u00b7 fruit on",
                 _ => "bait, fruit off",
             },
             baitOn || fruitOn ? "Text2" : "Faint");
+
+        var set = _model.Calibration.Count(c => c.State == CalibrationState.Set);
+        _model.CalibrationSummary =
+            !valid ? "The scan region is not set, so nothing can fish yet."
+            : _model.Region.State == CalibrationState.Failed
+                ? "Set, but the last test could not read the gauge."
+            : $"{Words[set]} of four set. Bait upkeep and fruit storage are optional and " +
+              $"{(baitOn, fruitOn) switch { (true, true) => "on", (false, false) => "off", _ => "one is on" }}.";
+    }
+
+    private static readonly string[] Words = { "None", "One", "Two", "Three", "Four" };
+
+    private static string Ago(DateTime at)
+    {
+        var span = DateTime.Now - at;
+        return span.TotalSeconds < 90 ? "just now"
+             : span.TotalMinutes < 90 ? $"{span.TotalMinutes:F0} min ago"
+             : span.TotalHours < 36 ? $"{span.TotalHours:F0} h ago"
+             : $"{span.TotalDays:F0} days ago";
+    }
+
+    private static Color Rgb(JsonElement array)
+    {
+        var v = array.EnumerateArray().Select(x => (byte)Math.Clamp(x.GetInt32(), 0, 255)).ToArray();
+        return v.Length >= 3 ? Color.FromRgb(v[0], v[1], v[2]) : Colors.Black;
+    }
+
+    /// <summary>Read a PNG without holding the file, so the engine can
+    /// overwrite it on the next test.</summary>
+    private static BitmapImage? LoadImage(string path)
+    {
+        if (!File.Exists(path)) return null;
+        try
+        {
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.IgnoreImageCache;
+            image.UriSource = new Uri(path);
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>"3/5 points" for a click sequence, or "" if none are set.</summary>

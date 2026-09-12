@@ -210,7 +210,8 @@
                              fights the well stays, hatched, rather than
                              collapsing the panel. -->
                         <Border DockPanel.Dock="Right" Style="{StaticResource CaptureWell}"
-                                Width="108" Height="148" Margin="16,0,0,0">
+                                Width="108" Height="148" Margin="16,0,0,0"
+                                Tag="{Binding Preview}">
                             <Grid>
                                 <TextBlock Text="no fight" HorizontalAlignment="Center"
                                            VerticalAlignment="Center"
@@ -306,91 +307,219 @@
 
         <!-- ========================================== CALIBRATION ========= -->
         <TabItem Header="Calibration" Tag="{Binding CalibrationDot}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="12"
-                          Padding="0,0,10,0">
-                <StackPanel>
-                    <TextBlock Text="1 · SCAN REGION" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Start a fishing minigame in GPO, then auto-detect. Give the gauge plenty of room - it is anchored to the bobber and slides as the camera moves, so a tight box clips it mid-fight." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding RegionLine}" Style="{StaticResource Readout}"
-                                       Foreground="{Binding RegionBrush}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Auto-detect"
-                                        MinWidth="130" Click="AutoDetect_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Drag-select"
-                                        MinWidth="130" Margin="6,0" Click="DragRegion_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Test detection"
-                                        MinWidth="130" Click="TestDetection_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+            <DockPanel>
+                <!-- The proof rail: what the macro sees, beside the cards
+                     that set it. A sibling column, never scrolls. -->
+                <Border DockPanel.Dock="Right" Width="300" Background="{StaticResource Bg}"
+                        BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+                    <DockPanel Margin="14,14,14,12">
+                        <TextBlock DockPanel.Dock="Top" Text="WHAT THE MACRO SEES"
+                                   Style="{StaticResource Heading}" Margin="0,0,0,9" />
+                        <Border DockPanel.Dock="Top" Style="{StaticResource Panel}">
+                            <ItemsControl ItemsSource="{Binding Rail}" Margin="12,9">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Value}" Margin="0,2"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeLabel}"
+                                                   Foreground="{Binding Brush}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </Border>
 
-                    <TextBlock Text="2 · DETECTION COLOURS" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Sampled from the gauge itself. The fish marker is found by shape rather than by colour, so these two are only used by auto-detect." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding ColourLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Sample gauge blue"
-                                        MinWidth="160" Tag="bar_blue" Click="SampleColour_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Sample bar black"
-                                        MinWidth="160" Margin="6,0,0,0" Tag="track_gray"
-                                        Click="SampleColour_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        <!-- The tail of the log, 11px, so a test's verdict lands
+                             beside its capture. -->
+                        <ListBox x:Name="RailLogList" DockPanel.Dock="Bottom"
+                                 Style="{StaticResource LogList}" Height="96"
+                                 ItemsSource="{Binding Log}"
+                                 VirtualizingPanel.IsVirtualizing="False">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Time}" Width="58"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeLabel}"
+                                                   Foreground="{StaticResource Faint}" />
+                                        <TextBlock Text="{Binding Mark}" Width="14"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeLabel}"
+                                                   Foreground="{Binding Brush}" />
+                                        <TextBlock Text="{Binding Message}" Width="176"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   FontFamily="{StaticResource Mono}"
+                                                   FontSize="{StaticResource SizeLabel}"
+                                                   Foreground="{Binding Brush}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
 
-                    <TextBlock Text="3 · BAIT UPKEEP" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Optional. Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, the menu, the fish list, the bubble he leaves behind, then your bait's row on the rod. The small buttons redo one piece. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. Snip the T badge only if the macro has to walk to Sen." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding BaitLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Calibrate crafting"
-                                        MinWidth="150" Click="BaitCraft_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Menu region"
-                                        MinWidth="110" Margin="6,0,0,0" Click="BaitMenu_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="N/M counter"
-                                        MinWidth="110" Margin="6,0,0,0" Click="BaitCounter_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Bait row"
-                                        MinWidth="100" Margin="6,0,0,0" Click="BaitRow_Click" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Pick barrel points"
-                                        MinWidth="140" Click="BaitShop_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Snip Sen's T badge"
-                                        MinWidth="150" Margin="6,0,0,0" Click="BaitPrompt_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                        <!-- The last test capture, boxed by the engine itself. -->
+                        <Border Style="{StaticResource CaptureWell}" Width="140" Height="262"
+                                BorderBrush="{StaticResource LineStrong}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Tag="{Binding TestCapture}">
+                            <Grid>
+                                <TextBlock Text="no test yet" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}"
+                                           FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <Image Source="{Binding TestCapture}" Stretch="Uniform"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Left" VerticalAlignment="Top"
+                                        Margin="5" Padding="3,1" CornerRadius="2"
+                                        Background="{StaticResource Bg}" Opacity="0.85">
+                                    <TextBlock Text="{Binding TestCaptureTag}"
+                                               FontFamily="{StaticResource Mono}" FontSize="9"
+                                               Foreground="{StaticResource Green}" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+                </Border>
 
-                    <TextBlock Text="4 · DEVIL FRUIT STORAGE" Style="{StaticResource Heading}" />
-                    <TextBlock Style="{StaticResource Note}"
-                               Text="Optional. Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, presses that key, clicks the green Store Fruit prompt, and reads the banner to see whether it took. Stand at the storage point while you calibrate." />
-                    <Border Style="{StaticResource Panel}">
-                        <StackPanel Margin="12,10">
-                            <TextBlock Text="{Binding FruitLines}" Style="{StaticResource Readout}" />
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Style="{StaticResource QuietButton}" Content="Snip fruit icon"
-                                        MinWidth="140" Click="FruitTemplate_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Hotbar row"
-                                        MinWidth="120" Margin="6,0,0,0" Click="FruitHotbar_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Banner strip"
-                                        MinWidth="120" Margin="6,0,0,0" Click="FruitBanner_Click" />
-                                <Button Style="{StaticResource QuietButton}" Content="Store button"
-                                        MinWidth="130" Margin="6,0,0,0" Click="FruitStore_Click" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource Note}" Margin="0,12,0,24"
+                <DockPanel Margin="14">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="CALIBRATION" FontFamily="{StaticResource Mono}"
+                                   FontWeight="Bold" FontSize="{StaticResource SizeHead}"
+                                   Foreground="{StaticResource Text}" />
+                        <TextBlock Style="{StaticResource Note}" Margin="0,2,0,0"
+                                   Text="{Binding CalibrationSummary}" />
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Note}" Margin="0,10,0,0"
                                Text="Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this." />
-                </StackPanel>
-            </ScrollViewer>
+
+                    <!-- The cards scroll on their own: three open at once
+                         overflow the window otherwise. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,6,0">
+                        <ItemsControl ItemsSource="{Binding Calibration}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource Panel}" Margin="0,0,0,6"
+                                            BorderBrush="{Binding EdgeBrush}">
+                                        <StackPanel>
+                                            <Button Style="{StaticResource CardHeader}"
+                                                    AutomationProperties.Name="{Binding Title}"
+                                                    Click="CalToggle_Click">
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Mark}"
+                                                               VerticalAlignment="Center"
+                                                               FontFamily="{StaticResource Mono}"
+                                                               FontSize="{StaticResource SizeMeta}"
+                                                               Foreground="{Binding MarkBrush}" />
+                                                    <TextBlock Text="{Binding Chevron}" Width="9"
+                                                               Margin="0,0,10,0" VerticalAlignment="Center"
+                                                               FontFamily="{StaticResource Mono}"
+                                                               FontSize="{StaticResource SizeMeta}"
+                                                               Foreground="{StaticResource Faint}" />
+                                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center"
+                                                               FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                                               FontSize="{StaticResource SizeLabel}"
+                                                               Foreground="{Binding TitleBrush}" />
+                                                    <Border Style="{StaticResource Badge}" HorizontalAlignment="Left"
+                                                            Visibility="{Binding IsOptional,
+                                                                Converter={StaticResource BoolToVisible}}">
+                                                        <TextBlock Text="optional"
+                                                                   FontFamily="{StaticResource Mono}"
+                                                                   FontSize="{StaticResource SizeMeta}"
+                                                                   Foreground="{StaticResource Faint}" />
+                                                    </Border>
+                                                </DockPanel>
+                                            </Button>
+
+                                            <StackPanel Margin="12,0,12,12"
+                                                        Visibility="{Binding IsOpen,
+                                                            Converter={StaticResource BoolToVisible}}">
+                                                <TextBlock Style="{StaticResource Note}" MaxWidth="640"
+                                                           Text="{Binding Note}" Margin="0,0,0,10" />
+
+                                                <!-- Why it failed, in words, above the
+                                                     thing that fixes it. -->
+                                                <Border Background="{StaticResource Surface2}"
+                                                        CornerRadius="3" Padding="11,9" Margin="0,0,0,10"
+                                                        BorderBrush="{Binding FaultBrush}"
+                                                        BorderThickness="2,0,0,0"
+                                                        Visibility="{Binding HasFault,
+                                                            Converter={StaticResource BoolToVisible}}">
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Left" Text="{Binding FaultWord}"
+                                                                   Margin="0,1,9,0" VerticalAlignment="Top"
+                                                                   FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                                                   FontSize="{StaticResource SizeLabel}"
+                                                                   Foreground="{Binding FaultBrush}" />
+                                                        <TextBlock Text="{Binding FaultText}" TextWrapping="Wrap"
+                                                                   FontFamily="{StaticResource Sans}"
+                                                                   FontSize="{StaticResource SizeBody}"
+                                                                   Foreground="{StaticResource Text2}" />
+                                                    </DockPanel>
+                                                </Border>
+
+                                                <DockPanel Margin="0,0,0,10">
+                                                    <Border DockPanel.Dock="Left" Width="76" Height="76"
+                                                            Margin="0,0,12,0" VerticalAlignment="Top"
+                                                            CornerRadius="4" BorderThickness="1"
+                                                            Background="{Binding Thumb}"
+                                                            BorderBrush="{Binding ThumbEdge}"
+                                                            Visibility="{Binding HasThumb,
+                                                                Converter={StaticResource BoolToVisible}}">
+                                                        <Border HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                                                Margin="3" Padding="3,1" CornerRadius="2"
+                                                                Background="{StaticResource Bg}" Opacity="0.85">
+                                                            <TextBlock Text="{Binding ThumbTag}"
+                                                                       FontFamily="{StaticResource Mono}" FontSize="9"
+                                                                       Foreground="{StaticResource Text2}" />
+                                                        </Border>
+                                                    </Border>
+                                                    <Border Background="{StaticResource Surface2}"
+                                                            CornerRadius="4" Padding="10,8">
+                                                        <TextBlock Text="{Binding Readout}" LineHeight="21"
+                                                                   FontFamily="{StaticResource Mono}"
+                                                                   FontSize="{StaticResource SizeBody}"
+                                                                   Foreground="{Binding ReadoutBrush}" />
+                                                    </Border>
+                                                </DockPanel>
+
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Style="{StaticResource PrimaryQuietButton}"
+                                                            Content="{Binding Primary.Label}"
+                                                            Tag="{Binding Primary.Tag}" Click="CalAction_Click" />
+                                                    <Button Style="{StaticResource TextAction}"
+                                                            Content="{Binding MoreLabel}" Margin="6,0,0,0"
+                                                            Click="CalMore_Click" />
+                                                </StackPanel>
+
+                                                <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0"
+                                                        Margin="0,10,0,0" Padding="0,10,0,0"
+                                                        Visibility="{Binding IsMoreOpen,
+                                                            Converter={StaticResource BoolToVisible}}">
+                                                    <ItemsControl ItemsSource="{Binding Extras}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <WrapPanel />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Button Style="{StaticResource ChipButton}"
+                                                                        Content="{Binding Label}"
+                                                                        Tag="{Binding Tag}"
+                                                                        Click="CalAction_Click" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Border>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </DockPanel>
         </TabItem>
 
         <!-- ============================================= SETTINGS ========= -->

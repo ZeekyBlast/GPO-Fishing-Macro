@@ -95,7 +95,8 @@
         <Setter Property="CornerRadius" Value="4" />
         <Setter Property="ClipToBounds" Value="True" />
         <Style.Triggers>
-            <DataTrigger Binding="{Binding Preview, Converter={StaticResource IsNull}}" Value="False">
+            <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self},
+                                          Converter={StaticResource IsNull}}" Value="False">
                 <Setter Property="Background" Value="{StaticResource Surface2}" />
                 <Setter Property="BorderBrush" Value="{StaticResource GreenDim}" />
             </DataTrigger>
@@ -179,6 +180,30 @@
         </Setter>
     </Style>
 
+    <!-- A calibration card's header: the whole row is the toggle. -->
+    <Style x:Key="CardHeader" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Text}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}" CornerRadius="6">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Surface2}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Buttons are quiet by default: surface fill, hairline border, plain
          text. Only Start is filled with the accent. -->
     <Style x:Key="QuietButton" TargetType="Button">
@@ -230,6 +255,21 @@
         <Setter Property="Foreground" Value="{StaticResource Bg}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="MinHeight" Value="32" />
+    </Style>
+
+    <!-- The one primary action on a card: quiet, but with the strong rim. -->
+    <Style x:Key="PrimaryQuietButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+        <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
+    </Style>
+
+    <!-- Secondary actions, behind "more actions": smaller, on the card. -->
+    <Style x:Key="ChipButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+        <Setter Property="Background" Value="{StaticResource Surface}" />
+        <Setter Property="Foreground" Value="{StaticResource Text2}" />
+        <Setter Property="FontSize" Value="{StaticResource SizeLabel}" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="11,3" />
+        <Setter Property="Margin" Value="0,0,6,6" />
     </Style>
 
     <Style x:Key="Field" TargetType="TextBox">

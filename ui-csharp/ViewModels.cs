@@ -242,6 +242,108 @@ public sealed class SettingsSection : Observable
     }
 }
 
+// ---------------------------------------------------------------- calibration
+
+public enum CalibrationState { NotSet, Set, Failed, Unverifiable }
+
+/// <summary>A button on a calibration card. The tag names the handler.</summary>
+public sealed record CalibrationAction(string Label, string Tag);
+
+/// <summary>One calibration card. The shell owns the words and the buttons;
+/// the state, readout and thumbnail are refreshed from the config, and a
+/// failed test marks the card Failed with the reason. The mark word and its
+/// brush both derive from the state, so colour is never the only signal.</summary>
+public sealed class CalibrationSection : Observable
+{
+    public CalibrationSection(string key, string title, string note, bool isOptional,
+                              CalibrationAction primary, params CalibrationAction[] extras)
+    {
+        Key = key;
+        Title = title;
+        Note = note;
+        IsOptional = isOptional;
+        Primary = primary;
+        Extras = extras;
+    }
+
+    public string Key { get; }
+    public string Title { get; }
+    public string Note { get; }
+    public bool IsOptional { get; }
+    public CalibrationAction Primary { get; }
+    public CalibrationAction[] Extras { get; }
+
+    private CalibrationState _state;
+    public CalibrationState State => _state;
+
+    private string _readout = "";
+    public string Readout { get => _readout; set => Set(ref _readout, value); }
+
+    private string _faultText = "";
+    public string FaultText { get => _faultText; set => Set(ref _faultText, value); }
+    public bool HasFault => _faultText.Length > 0;
+
+    /// <summary>Region shows the last test capture; colours show two swatches.
+    /// Null means no thumbnail column at all.</summary>
+    private Brush? _thumb;
+    public Brush? Thumb { get => _thumb; set { if (Set(ref _thumb, value)) Raise(nameof(HasThumb)); } }
+    public bool HasThumb => _thumb is not null;
+
+    private string _thumbTag = "";
+    public string ThumbTag { get => _thumbTag; set => Set(ref _thumbTag, value); }
+
+    private bool _isOpen;
+    public bool IsOpen
+    {
+        get => _isOpen;
+        set { if (Set(ref _isOpen, value)) { Raise(nameof(Chevron)); Raise(nameof(EdgeBrush)); } }
+    }
+
+    private bool _isMoreOpen;
+    public bool IsMoreOpen
+    {
+        get => _isMoreOpen;
+        set { if (Set(ref _isMoreOpen, value)) Raise(nameof(MoreLabel)); }
+    }
+
+    public string Chevron => _isOpen ? "v" : ">";
+    public Brush EdgeBrush => Palette.Named(_isOpen ? "LineStrong" : "Line");
+    public string MoreLabel => _isMoreOpen ? "fewer actions" : "more actions";
+
+    public void Show(CalibrationState state, string faultText = "")
+    {
+        _state = state;
+        FaultText = faultText;
+        foreach (var name in new[] { nameof(State), nameof(Mark), nameof(MarkBrush),
+                                     nameof(TitleBrush), nameof(ReadoutBrush), nameof(ThumbEdge),
+                                     nameof(HasFault), nameof(FaultWord), nameof(FaultBrush) })
+            Raise(name);
+    }
+
+    public string Mark => _state switch
+    {
+        CalibrationState.Set => "set",
+        CalibrationState.Failed => "set \u00b7 test failed",
+        CalibrationState.Unverifiable => "cannot verify",
+        _ => IsOptional ? "not set \u00b7 optional" : "not set",
+    };
+
+    public Brush MarkBrush => Palette.Named(_state switch
+    {
+        CalibrationState.Set => "Green",
+        CalibrationState.Failed => "Red",
+        CalibrationState.Unverifiable => "Faint",
+        _ => IsOptional ? "Faint" : "Amber",
+    });
+
+    /// <summary>Optional and unset is demoted, not hidden.</summary>
+    public Brush TitleBrush => Palette.Named(IsOptional && _state == CalibrationState.NotSet ? "Muted" : "Text");
+    public Brush ReadoutBrush => Palette.Named(_state == CalibrationState.NotSet ? "Faint" : "Text2");
+    public Brush ThumbEdge => Palette.Named(_state == CalibrationState.Set ? "GreenDim" : "Line");
+    public string FaultWord => _state == CalibrationState.Failed ? "why" : "note";
+    public Brush FaultBrush => Palette.Named(_state == CalibrationState.Failed ? "Red" : "Amber");
+}
+
 /// <summary>A checkbox spans the row; everything else is label plus field.</summary>
 public sealed class FieldTemplateSelector : DataTemplateSelector
 {

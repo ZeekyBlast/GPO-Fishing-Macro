@@ -216,19 +216,55 @@ public sealed class MainViewModel : Observable
 
     // ------------------------------------------------------------ calibration
 
-    private string _regionLine = "not set";
-    public string RegionLine { get => _regionLine; set => Set(ref _regionLine, value); }
+    // The shell owns the words and the buttons; MainWindow refreshes state,
+    // readout and thumbnail from the config. Tags name the handlers.
+    public CalibrationSection Region { get; } = new("region", "1 \u00b7 SCAN REGION",
+        "Start a fishing minigame in GPO, then auto-detect. Give the gauge plenty of room - " +
+        "it is anchored to the bobber and slides as the camera moves, so a tight box clips " +
+        "it mid-fight.", false,
+        new("Test detection", "test"),
+        new("Auto-detect", "auto"), new("Drag-select", "drag"));
 
-    private Brush _regionBrush = Brushes.Gray;
-    public Brush RegionBrush { get => _regionBrush; set => Set(ref _regionBrush, value); }
+    public CalibrationSection Colours { get; } = new("colours", "2 \u00b7 DETECTION COLOURS",
+        "Sampled from the gauge itself. The fish marker is found by shape rather than by " +
+        "colour, so these two are only used by auto-detect.", false,
+        new("Re-sample both", "resample"),
+        new("Sample gauge blue", "blue"), new("Sample bar black", "black"));
 
-    private string _colourLines = "";
-    public string ColourLines { get => _colourLines; set => Set(ref _colourLines, value); }
+    public CalibrationSection Bait { get; } = new("bait", "3 \u00b7 BAIT UPKEEP",
+        "Calibrate crafting walks Sen's menu with you one screen at a time: the dialogue, " +
+        "the menu, the fish list, the bubble he leaves behind, then your bait's row on the " +
+        "rod. Buying: hold the key at the bait barrel and pick the quantity box and Confirm. " +
+        "Snip the T badge only if the macro has to walk to Sen.", true,
+        new("Calibrate crafting", "craft"),
+        new("Menu region", "menu"), new("N/M counter", "counter"), new("Bait row", "row"),
+        new("Pick barrel points", "barrel"), new("Snip Sen's T badge", "badge"));
 
-    private string _fruitLines = "";
-    private string _baitLines = "";
-    public string FruitLines { get => _fruitLines; set => Set(ref _fruitLines, value); }
-    public string BaitLines { get => _baitLines; set => Set(ref _baitLines, value); }
+    public CalibrationSection Fruit { get; } = new("fruit", "4 \u00b7 DEVIL FRUIT STORAGE",
+        "Every fruit shares one hotbar icon, so the macro finds which slot holds a fruit, " +
+        "presses that key, clicks the green Store Fruit prompt, and reads the banner to see " +
+        "whether it took. Stand at the storage point while you calibrate.", true,
+        new("Calibrate storage", "storage"),
+        new("Snip fruit icon", "icon"), new("Hotbar row", "hotbar"), new("Banner strip", "banner"),
+        new("Store button", "store"));
+
+    public CalibrationSection[] Calibration => new[] { Region, Colours, Bait, Fruit };
+
+    private string _calibrationSummary = "";
+    public string CalibrationSummary { get => _calibrationSummary; set => Set(ref _calibrationSummary, value); }
+
+    // The proof rail: what the macro sees, beside the cards that set it.
+    public Reading RailWindow { get; } = new("window");
+    public Reading RailRegion { get; } = new("region");
+    public Reading RailColours { get; } = new("colours");
+    public Reading RailTest { get; } = new("last test");
+    public Reading[] Rail => new[] { RailWindow, RailRegion, RailColours, RailTest };
+
+    private ImageSource? _testCapture;
+    public ImageSource? TestCapture { get => _testCapture; set => Set(ref _testCapture, value); }
+
+    private string _testCaptureTag = "";
+    public string TestCaptureTag { get => _testCaptureTag; set => Set(ref _testCaptureTag, value); }
 
     // ----------------------------------------------------------------- intake
 
@@ -297,6 +333,7 @@ public sealed class MainViewModel : Observable
             ? $"{window.GetProperty("width").GetInt32()}x{window.GetProperty("height").GetInt32()}" +
               $" ({window.GetProperty("left").GetInt32()},{window.GetProperty("top").GetInt32()})"
             : "not found", hasWindow ? "Green" : "Amber");
+        RailWindow.Show(WindowLine, hasWindow ? "Green" : "Amber");
 
         var stats = tick.GetProperty("stats");
         var caught = stats.GetProperty("fish_total").GetInt32();
