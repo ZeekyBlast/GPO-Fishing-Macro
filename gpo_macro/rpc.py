@@ -285,6 +285,7 @@ class Engine:
         patch = req.get("patch") or {}
         if not isinstance(patch, dict):
             raise ValueError("patch must be an object")
+        self._check_hotkeys(patch.get("hotkeys"))
         self._one_bait_mode(patch.get("bait"))
         dict_into_dataclass(self.cfg, patch)
         self.store.update()
@@ -292,6 +293,26 @@ class Engine:
         self.notifier.restart_periodic()
         self._sync_sound()
         return {"config": self.cfg.to_dict()}
+
+    def _check_hotkeys(self, hotkeys: Any) -> None:
+        """Refuse a key the listener cannot bind, or both actions on one key,
+        before anything is written: a saved pair that never registers again
+        is a settings file that has to be edited by hand."""
+        if not isinstance(hotkeys, dict):
+            return
+        from .input import to_pynput_hotkey
+        start = str(hotkeys.get("start_stop", self.cfg.hotkeys.start_stop))
+        panic = str(hotkeys.get("panic", self.cfg.hotkeys.panic))
+        try:
+            same = to_pynput_hotkey(start) == to_pynput_hotkey(panic)
+        except ValueError as exc:
+            raise ValueError(f"hotkey: {exc}") from None
+        if same:
+            if "start_stop" in hotkeys and "panic" not in hotkeys:
+                raise ValueError(f"{start} is already the panic key")
+            if "panic" in hotkeys and "start_stop" not in hotkeys:
+                raise ValueError(f"{panic} is already the toggle key")
+            raise ValueError("the toggle and panic keys must differ")
 
     def _one_bait_mode(self, bait: Any) -> None:
         """Craft or buy, never both. The one just switched on wins; the form

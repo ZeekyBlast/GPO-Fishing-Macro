@@ -273,6 +273,17 @@
         <Setter Property="Margin" Value="0,0,6,6" />
     </Style>
 
+    <!-- A hotkey field: the key as a keycap you click, then press the new
+         key. Mono and bold like the setup's keycaps, quiet like a button. -->
+    <Style x:Key="KeycapButton" TargetType="Button" BasedOn="{StaticResource QuietButton}">
+        <Setter Property="FontFamily" Value="{StaticResource Mono}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="BorderBrush" Value="{StaticResource LineStrong}" />
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="10,2" />
+    </Style>
+
     <!-- A keycap, for the two hotkeys the setup teaches. -->
     <Style x:Key="Keycap" TargetType="Border">
         <Setter Property="Background" Value="{StaticResource Surface2}" />

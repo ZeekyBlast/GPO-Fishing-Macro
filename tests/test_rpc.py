@@ -47,17 +47,54 @@ def send(proc, **request):
     proc.stdin.flush()
 
 
+def make_engine(name: str):
+    """An in-process engine, not started: commands run, nothing is sent."""
+    import io
+
+    from gpo_macro.config import AppConfig, ConfigStore
+    from gpo_macro.rpc import Engine
+
+    real_stdout = sys.stdout
+    sys.stdout = io.StringIO()                 # the engine repoints it; keep ours
+    try:
+        return Engine(ConfigStore(paths.scratch() / name, AppConfig()))
+    finally:
+        sys.stdout = real_stdout
+
+
+def check_hotkey_validation() -> None:
+    """A hotkey the listener cannot bind, or two hotkeys on one key, is
+    refused before anything is saved - otherwise the settings file holds a
+    pair that silently never registers again."""
+    engine = make_engine("hotkeys-settings.json")
+    try:
+        for patch, expect in (({"start_stop": "f8"}, "panic"),
+                              ({"panic": "f6"}, "toggle"),
+                              ({"panic": "nope"}, "nope")):
+            try:
+                engine.cmd_set_config({"patch": {"hotkeys": patch}})
+            except ValueError as exc:
+                assert expect in str(exc), (patch, str(exc))
+            else:
+                raise AssertionError(f"{patch} was accepted")
+        assert (engine.cfg.hotkeys.start_stop, engine.cfg.hotkeys.panic) == ("f6", "f8")
+        assert not engine.store.path.exists(), "a refused patch was written to disk"
+
+        result = engine.cmd_set_config({"patch": {"hotkeys": {"start_stop": "ctrl+f9"}}})
+        assert result["config"]["hotkeys"]["start_stop"] == "ctrl+f9"
+        assert engine.store.path.exists()
+    finally:
+        engine.hotkeys.stop()
+    print("hotkey validation ok - bad or duplicate keys refused before saving")
+
+
 def check_toggle_resumes_paused() -> None:
     """The toggle key cycles start / stop, and a paused bot resumes.
 
     The dashboard says "Press f6 to resume" and the bot says "toggle to
     resume"; a toggle that stopped a paused bot made every focus-loss pause
     end the session by the time the user reacted."""
-    import io
-
-    from gpo_macro.config import AppConfig, ConfigStore
     from gpo_macro.fisher import State
-    from gpo_macro.rpc import Engine
 
     class FakeBot:
         def __init__(self, state):
@@ -73,13 +110,7 @@ def check_toggle_resumes_paused() -> None:
         def request_pause_toggle(self):
             self.toggled = True
 
-    real_stdout = sys.stdout
-    sys.stdout = io.StringIO()                 # the engine repoints it; keep ours
-    try:
-        engine = Engine(ConfigStore(paths.scratch() / "settings.json", AppConfig()))
-    finally:
-        sys.stdout = real_stdout
-
+    engine = make_engine("toggle-settings.json")
     engine.bot = FakeBot(State.PAUSED)
     assert engine.cmd_toggle({}) == {"toggled": True}, "paused bot was not resumed"
     assert engine.bot.toggled and not engine.bot.stopped, "toggle stopped a paused bot"
@@ -96,6 +127,7 @@ def check_toggle_resumes_paused() -> None:
 
 def main() -> int:
     check_toggle_resumes_paused()
+    check_hotkey_validation()
 
     exe = str(PYTHON) if PYTHON.exists() else sys.executable
     proc = subprocess.Popen(
@@ -109,12 +141,33 @@ def main() -> int:
         assert hello["defaults"]["controller"]["bar_lead"] is not None, "defaults missing"
         assert hello["config"]["hotkeys"]["start_stop"], "config missing in hello"
         kinds = {f["kind"] for f in hello["schema"]}
-        assert kinds <= {"str", "int", "float", "bool", "secret"}, f"unknown kinds: {kinds}"
+        assert kinds <= {"str", "int", "float", "bool", "secret", "hotkey"}, f"unknown kinds: {kinds}"
+        assert {f["kind"] for f in hello["schema"] if f["obj"] == "hotkeys"} == {"hotkey"}
         # Every schema entry must name a field that actually exists.
         for field in hello["schema"]:
             section = hello["config"][field["obj"]]
             assert field["attr"] in section, f"{field['obj']}.{field['attr']} not in config"
-        print(f"hello ok - {len(hello['schema'])} settings fields")
+        # A gate names another field, one that comes earlier in the form so
+        # the knobs it reveals appear under it, and one whose "on" is
+        # readable: a bool, or a text that is non-empty.
+        order = [(f["obj"], f["attr"]) for f in hello["schema"]]
+        by_key = {key: f for key, f in zip(order, hello["schema"])}
+        for field in hello["schema"]:
+            assert isinstance(field["gate"], list), field
+            for gate in field["gate"]:
+                key = (gate["obj"], gate["attr"])
+                assert key in by_key, f"{field['obj']}.{field['attr']} gated on unknown {key}"
+                assert order.index(key) < order.index((field["obj"], field["attr"])), \
+                    f"gate {key} comes after the field it reveals"
+                assert by_key[key]["kind"] in ("bool", "secret", "str"), key
+        assert by_key[("bait", "walk_keys")]["gate"] == [{"obj": "bait", "attr": "walk_to_sen"}]
+        assert by_key[("webhook", "user_id")]["gate"] == [{"obj": "webhook", "attr": "url"}]
+        assert by_key[("bait", "every_n_catches")]["gate"] == [
+            {"obj": "bait", "attr": "auto_craft"}, {"obj": "bait", "attr": "auto_buy"}]
+        assert by_key[("fishing", "rod_key")]["gate"] == [], "rod_key is used with equip_rod off"
+        shown = sum(1 for f in hello["schema"] if not f["gate"] and not f["advanced"])
+        assert shown <= 26, f"{shown} fields show by default - too many are ungated"
+        print(f"hello ok - {len(hello['schema'])} settings fields, {shown} shown by default")
 
         reply = (send(proc, id=1, cmd="ping"),
                  read_until(proc, lambda f: f.get("t") == "reply" and f.get("id") == 1))[1]

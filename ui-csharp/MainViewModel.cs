@@ -192,9 +192,57 @@ public sealed class MainViewModel : Observable
         set { if (Set(ref _showAdvanced, value)) RefreshFilter(); }
     }
 
+    private readonly Dictionary<(string, string), SettingField> _fieldIndex = new();
+
     public void RefreshFilter()
     {
-        foreach (var section in Sections) section.Filter(FilterText.Trim(), ShowAdvanced);
+        _fieldIndex.Clear();
+        foreach (var section in Sections)
+            foreach (var field in section.Fields)
+                _fieldIndex[(field.Object, field.Attr)] = field;
+        foreach (var section in Sections)
+            section.Filter(FilterText.Trim(), ShowAdvanced, IsRevealed);
+    }
+
+    /// <summary>A field shows when any of its gates is on and itself showing:
+    /// a knob under a hidden box would be a knob with no explanation.</summary>
+    private bool IsRevealed(SettingField field)
+    {
+        if (field.Gates.Count == 0) return true;
+        foreach (var (obj, attr) in field.Gates)
+            if (_fieldIndex.TryGetValue((obj, attr), out var gate) && gate.IsOn && IsRevealed(gate))
+                return true;
+        return false;
+    }
+
+    /// <summary>What just happened to the form, under the Save button, where
+    /// the person who pressed it is looking. The log gets a copy.</summary>
+    private string _settingsStatus = "";
+    public string SettingsStatus
+    {
+        get => _settingsStatus;
+        set { if (Set(ref _settingsStatus, value)) Raise(nameof(HasSettingsStatus)); }
+    }
+    public bool HasSettingsStatus => _settingsStatus.Length > 0;
+
+    private Brush _settingsStatusBrush = Brushes.Gray;
+    public Brush SettingsStatusBrush
+    {
+        get => _settingsStatusBrush;
+        set => Set(ref _settingsStatusBrush, value);
+    }
+
+    public void ShowSettingsStatus(string text, string brushKey)
+    {
+        SettingsStatus = text;
+        SettingsStatusBrush = Palette.Named(brushKey);
+    }
+
+    /// <summary>An edit after a result makes the result old news: it fades
+    /// rather than vanishing, so "saved" is still readable but no longer green.</summary>
+    public void FadeSettingsStatus()
+    {
+        if (HasSettingsStatus) SettingsStatusBrush = Palette.Named("Faint");
     }
 
     /// <summary>The webhook URL row carries the delivery status as its effect,

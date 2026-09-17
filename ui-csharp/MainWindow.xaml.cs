@@ -207,15 +207,33 @@ public partial class MainWindow : Window
                 byName[name] = section;
                 _model.Sections.Add(section);
             }
+            var gates = new List<(string Obj, string Attr)>();
+            if (entry.TryGetProperty("gate", out var gateList))
+                foreach (var gate in gateList.EnumerateArray())
+                    gates.Add((gate.GetProperty("obj").GetString() ?? "",
+                               gate.GetProperty("attr").GetString() ?? ""));
             var field = new SettingField(
                 entry.GetProperty("obj").GetString() ?? "",
                 entry.GetProperty("attr").GetString() ?? "",
                 entry.GetProperty("label").GetString() ?? "",
                 entry.GetProperty("kind").GetString() ?? "str",
-                entry.TryGetProperty("effect", out var effect) ? effect.GetString() ?? "" : "");
+                entry.TryGetProperty("effect", out var effect) ? effect.GetString() ?? "" : "",
+                gates);
             field.PropertyChanged += (_, args) =>
             {
-                if (args.PropertyName == nameof(SettingField.IsDirty)) _model.RefreshDirty();
+                switch (args.PropertyName)
+                {
+                    case nameof(SettingField.IsDirty):
+                        _model.RefreshDirty();
+                        break;
+                    case nameof(SettingField.Flag):
+                    case nameof(SettingField.Text):
+                        // Ticking a box reveals its knobs at once, and an
+                        // edit makes the last result old news.
+                        _model.FadeSettingsStatus();
+                        _model.RefreshFilter();
+                        break;
+                }
             };
             section.Fields.Add(field);
             if (field.Object == "webhook" && field.Attr == "url") _model.WebhookField = field;
@@ -261,13 +279,19 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is JsonException or IOException)
         {
             _model.AddLog("error", $"could not read {dialog.FileName}: {ex.Message}");
+            _model.ShowSettingsStatus($"could not read {Path.GetFileName(dialog.FileName)}: {ex.Message}", "Red");
             return;
         }
         var reply = await _engine.CallAsync("set_config",
             new Dictionary<string, object?> { ["patch"] = patch });
-        if (!Ok(reply, out var result)) { ReportFailure(reply, "import"); return; }
+        if (!Ok(reply, out var result))
+        {
+            _model.ShowSettingsStatus("import failed: " + ReportFailure(reply, "import"), "Red");
+            return;
+        }
         AdoptConfig(result.GetProperty("config"));
         _model.AddLog("info", $"settings imported from {dialog.FileName}");
+        _model.ShowSettingsStatus($"imported from {Path.GetFileName(dialog.FileName)}", "Green");
     }
 
     private void OpenSettingsFolder_Click(object sender, RoutedEventArgs e)
@@ -291,6 +315,7 @@ public partial class MainWindow : Window
             if (_defaults.TryGetProperty(field.Object, out var group)
                 && group.TryGetProperty(field.Attr, out var value))
                 field.Edit(value);
+        _model.ShowSettingsStatus($"{section.Name} put back to its defaults - Save to keep that", "Amber");
     }
 
     private void AdoptConfig(JsonElement config)
@@ -362,11 +387,14 @@ public partial class MainWindow : Window
         return false;
     }
 
-    private void ReportFailure(JsonElement reply, string what)
+    /// <summary>Log an engine refusal; returns the reason so a screen can
+    /// show it where the person is looking as well.</summary>
+    private string ReportFailure(JsonElement reply, string what)
     {
-        var detail = reply.TryGetProperty("error", out var error)
-            ? error.GetString() : "no reason given";
+        var detail = (reply.TryGetProperty("error", out var error)
+            ? error.GetString() : null) ?? "no reason given";
         _model.AddLog("error", $"{what}: {detail}");
+        return detail;
     }
 
     // ------------------------------------------------------- dashboard actions
@@ -416,13 +444,16 @@ public partial class MainWindow : Window
                 }
                 catch (FormatException)
                 {
-                    _model.AddLog("error",
-                        $"invalid value for \"{field.Label}\": {field.Text}");
+                    var problem = $"invalid value for \"{field.Label}\": {field.Text}";
+                    _model.AddLog("error", problem);
+                    _model.ShowSettingsStatus("not saved - " + problem, "Red");
                     return false;
                 }
                 catch (OverflowException)
                 {
-                    _model.AddLog("error", $"value out of range for \"{field.Label}\"");
+                    var problem = $"value out of range for \"{field.Label}\"";
+                    _model.AddLog("error", problem);
+                    _model.ShowSettingsStatus("not saved - " + problem, "Red");
                     return false;
                 }
                 if (!patch.TryGetValue(field.Object, out var group))
@@ -432,9 +463,17 @@ public partial class MainWindow : Window
 
         var reply = await _engine.CallAsync("set_config",
             new Dictionary<string, object?> { ["patch"] = patch });
-        if (!Ok(reply, out var result)) { ReportFailure(reply, "save"); return false; }
+        if (!Ok(reply, out var result))
+        {
+            _model.ShowSettingsStatus("not saved - " + ReportFailure(reply, "save"), "Red");
+            return false;
+        }
         AdoptConfig(result.GetProperty("config"));
-        if (!quiet) _model.AddLog("info", "settings saved");
+        if (!quiet)
+        {
+            _model.AddLog("info", "settings saved");
+            _model.ShowSettingsStatus("saved", "Green");
+        }
         return true;
     }
 
@@ -451,12 +490,111 @@ public partial class MainWindow : Window
         // Save first: otherwise this tests the URL from before the paste.
         if (!await SaveAsync(quiet: true)) return;
         var reply = await _engine.CallAsync("webhook_test");
-        if (!Ok(reply, out var result)) { ReportFailure(reply, "webhook test"); return; }
+        if (!Ok(reply, out var result))
+        {
+            _model.ShowSettingsStatus("webhook test failed: " + ReportFailure(reply, "webhook test"), "Red");
+            return;
+        }
         var problem = result.GetProperty("problem").GetString();
-        _model.AddLog(string.IsNullOrEmpty(problem) ? "info" : "warn",
-            string.IsNullOrEmpty(problem)
-                ? "webhook: test message queued"
-                : $"webhook: {problem}");
+        var ok = string.IsNullOrEmpty(problem);
+        _model.AddLog(ok ? "info" : "warn", ok ? "webhook: test message queued" : $"webhook: {problem}");
+        _model.ShowSettingsStatus(
+            ok ? "saved, test message queued - the URL row reports delivery" : $"webhook: {problem}",
+            ok ? "Green" : "Amber");
+    }
+
+    // ---------------------------------------------------------- hotkey capture
+
+    private SettingField? _capturingHotkey;
+
+    /// <summary>The keycap was clicked: the next key pressed becomes the
+    /// hotkey. Modifiers are prefixed, Esc or a click elsewhere keeps the
+    /// current key, and a key the other action already uses is refused on
+    /// the spot. The engine checks again on save, for imports.</summary>
+    private void Hotkey_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not SettingField field) return;
+        if (_capturingHotkey is { } previous) previous.Capturing = false;
+        var current = field.HotkeyLabel;
+        _capturingHotkey = field;
+        field.Capturing = true;
+        PreviewKeyDown -= CaptureHotkey;
+        PreviewKeyDown += CaptureHotkey;
+        PreviewMouseDown -= CancelHotkeyCapture;
+        PreviewMouseDown += CancelHotkeyCapture;
+        _model.ShowSettingsStatus($"press the key for \"{field.Label}\" - Esc keeps {current}", "Text2");
+    }
+
+    private void CaptureHotkey(object sender, KeyEventArgs e)
+    {
+        var field = _capturingHotkey;
+        if (field is null) { PreviewKeyDown -= CaptureHotkey; return; }
+        e.Handled = true;                               // nothing else sees the key
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.Escape) { EndHotkeyCapture(field, "kept " + field.Text.ToUpperInvariant()); return; }
+        if (IsModifier(key)) return;                    // wait for the key it modifies
+        var name = HotkeyName(key);
+        if (name is null)
+        {
+            _model.ShowSettingsStatus("that key cannot be a hotkey - try another", "Amber");
+            return;
+        }
+        var parts = new List<string>();
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control)) parts.Add("ctrl");
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) parts.Add("shift");
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Alt)) parts.Add("alt");
+        parts.Add(name);
+        name = string.Join("+", parts);
+
+        var other = _model.Sections.SelectMany(s => s.Fields)
+            .FirstOrDefault(f => f.Object == "hotkeys" && f.Attr != field.Attr);
+        if (other is not null && string.Equals(other.Text.Trim(), name, StringComparison.OrdinalIgnoreCase))
+        {
+            _model.ShowSettingsStatus(
+                $"{name.ToUpperInvariant()} is already the {(other.Attr == "panic" ? "panic" : "toggle")} " +
+                "key - press another", "Red");
+            return;
+        }
+        field.Text = name;
+        EndHotkeyCapture(field, $"{field.Label}: {name.ToUpperInvariant()} - Save to keep it");
+    }
+
+    private void CancelHotkeyCapture(object sender, MouseButtonEventArgs e)
+    {
+        if (_capturingHotkey is { } field) EndHotkeyCapture(field, "kept " + field.Text.ToUpperInvariant());
+    }
+
+    private void EndHotkeyCapture(SettingField field, string status)
+    {
+        field.Capturing = false;
+        _capturingHotkey = null;
+        PreviewKeyDown -= CaptureHotkey;
+        PreviewMouseDown -= CancelHotkeyCapture;
+        _model.ShowSettingsStatus(status, "Text2");
+    }
+
+    private static bool IsModifier(Key key) =>
+        key is Key.LeftCtrl or Key.RightCtrl or Key.LeftShift or Key.RightShift
+            or Key.LeftAlt or Key.RightAlt or Key.LWin or Key.RWin;
+
+    /// <summary>The name pynput knows the key by, or null for one it cannot
+    /// bind globally. Letters, digits, F-keys and the navigation and lock
+    /// keys; the numpad and punctuation vary by layout and are left out.</summary>
+    private static string? HotkeyName(Key key)
+    {
+        if (key >= Key.F1 && key <= Key.F24) return "f" + (key - Key.F1 + 1);
+        if (key >= Key.A && key <= Key.Z) return ((char)('a' + (key - Key.A))).ToString();
+        if (key >= Key.D0 && key <= Key.D9) return ((char)('0' + (key - Key.D0))).ToString();
+        return key switch
+        {
+            Key.Space => "space", Key.Tab => "tab", Key.Return => "enter", Key.Back => "backspace",
+            Key.Insert => "insert", Key.Delete => "delete", Key.Home => "home", Key.End => "end",
+            Key.PageUp => "page_up", Key.PageDown => "page_down", Key.Pause => "pause",
+            Key.Scroll => "scroll_lock", Key.CapsLock => "caps_lock", Key.NumLock => "num_lock",
+            Key.PrintScreen => "print_screen",
+            Key.Up => "up", Key.Down => "down", Key.Left => "left", Key.Right => "right",
+            _ => null,
+        };
     }
 
     // --------------------------------------------------------- update actions

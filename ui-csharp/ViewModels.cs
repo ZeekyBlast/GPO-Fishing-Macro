@@ -129,19 +129,42 @@ public sealed class SettingField : Observable
     private bool _flag;
     private string _saved = "";
 
-    public SettingField(string obj, string attr, string label, string kind, string effect)
+    public SettingField(string obj, string attr, string label, string kind, string effect,
+                        IReadOnlyList<(string Obj, string Attr)> gates)
     {
         Object = obj;
         Attr = attr;
         Label = label;
         Kind = kind;
         _effect = effect;
+        Gates = gates;
     }
 
     public string Object { get; }
     public string Attr { get; }
     public string Label { get; }
     public string Kind { get; }
+
+    /// <summary>Fields of which at least one must be on for this one to show.
+    /// Empty means always shown. From the engine's schema.</summary>
+    public IReadOnlyList<(string Obj, string Attr)> Gates { get; }
+
+    /// <summary>On, read as a gate: a ticked box, or a text with something in it.</summary>
+    public bool IsOn => IsBool ? _flag : _text.Trim().Length > 0;
+
+    public bool IsHotkey => Kind == "hotkey";
+
+    /// <summary>A hotkey field waiting for the next keypress.</summary>
+    private bool _capturing;
+    public bool Capturing
+    {
+        get => _capturing;
+        set { if (Set(ref _capturing, value)) Raise(nameof(HotkeyLabel)); }
+    }
+
+    /// <summary>What the keycap shows: the key, or the invitation.</summary>
+    public string HotkeyLabel => _capturing ? "press a key…"
+        : _text.Trim().Length == 0 ? "not set" : _text.Trim().ToUpperInvariant();
 
     /// <summary>What the knob does, beside it. Usually static from the schema;
     /// the webhook URL's is live, carrying the last delivery's result.</summary>
@@ -160,7 +183,7 @@ public sealed class SettingField : Observable
     public string Text
     {
         get => _text;
-        set { if (Set(ref _text, value)) Raise(nameof(IsDirty)); }
+        set { if (Set(ref _text, value)) { Raise(nameof(IsDirty)); Raise(nameof(HotkeyLabel)); } }
     }
 
     public bool Flag
@@ -239,15 +262,17 @@ public sealed class SettingsSection : Observable
 
     public ObservableCollection<SettingField> Fields { get; } = new();
 
-    /// <summary>Hide fields whose label misses the filter, and the section
-    /// when advanced is folded or no field survived.</summary>
-    public void Filter(string text, bool showAdvanced)
+    /// <summary>Hide fields whose gate is off, or whose label misses the
+    /// filter, and the section when advanced is folded or no field survived.
+    /// A search overrides the gates: typing "walk" has to find the walk keys.</summary>
+    public void Filter(string text, bool showAdvanced, Func<SettingField, bool> isRevealed)
     {
         var any = false;
         foreach (var field in Fields)
         {
             field.IsVisible = text.Length == 0
-                || field.Label.Contains(text, StringComparison.OrdinalIgnoreCase);
+                ? isRevealed(field)
+                : field.Label.Contains(text, StringComparison.OrdinalIgnoreCase);
             any |= field.IsVisible;
         }
         IsVisible = any && (showAdvanced || !IsAdvanced);
@@ -367,16 +392,19 @@ public sealed class CalibrationSection : Observable
     public Brush FaultBrush => Palette.Named(State == CalibrationState.Failed ? "Red" : "Amber");
 }
 
-/// <summary>A checkbox spans the row; everything else is label plus field.</summary>
+/// <summary>A checkbox spans the row; a hotkey is a keycap; everything else
+/// is label plus field.</summary>
 public sealed class FieldTemplateSelector : DataTemplateSelector
 {
     public DataTemplate? BoolTemplate { get; set; }
     public DataTemplate? TextTemplate { get; set; }
     public DataTemplate? SecretTemplate { get; set; }
+    public DataTemplate? HotkeyTemplate { get; set; }
 
     public override DataTemplate? SelectTemplate(object item, DependencyObject container) =>
         item is not SettingField field ? base.SelectTemplate(item, container)
         : field.IsBool ? BoolTemplate
         : field.IsSecret ? SecretTemplate
+        : field.IsHotkey ? HotkeyTemplate
         : TextTemplate;
 }

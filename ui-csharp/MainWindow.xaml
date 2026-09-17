@@ -57,10 +57,32 @@
             </Grid>
         </DataTemplate>
 
+        <!-- A hotkey is a keycap: click it, press the key. Typing a name is
+             how "<1>" ended up bound to the left mouse button. -->
+        <DataTemplate x:Key="HotkeyField">
+            <Grid Margin="0,3" MinHeight="28"
+                  Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisible}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200" />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding Label}"
+                           TextWrapping="Wrap" Margin="0,0,10,0" />
+                <Button Grid.Column="1" Style="{StaticResource KeycapButton}"
+                        HorizontalAlignment="Left" Content="{Binding HotkeyLabel}"
+                        Click="Hotkey_Click"
+                        ToolTip="Click, then press the key you want. Esc keeps this one." />
+                <TextBlock Grid.Column="2" Style="{StaticResource Effect}"
+                           Text="{Binding Effect}" Foreground="{Binding EffectBrush}" />
+            </Grid>
+        </DataTemplate>
+
         <local:FieldTemplateSelector x:Key="FieldSelector"
                                      BoolTemplate="{StaticResource BoolField}"
                                      TextTemplate="{StaticResource TextField}"
-                                     SecretTemplate="{StaticResource SecretField}" />
+                                     SecretTemplate="{StaticResource SecretField}"
+                                     HotkeyTemplate="{StaticResource HotkeyField}" />
         <local:EqualsToVisibleConverter x:Key="EqualsToVisible" />
 
         <!-- The proof rail: what the macro sees. Shared by the calibration
@@ -580,7 +602,7 @@
                                    FontWeight="Bold" FontSize="{StaticResource SizeHead}"
                                    Foreground="{StaticResource Text}" />
                         <TextBlock Style="{StaticResource Note}" Margin="0,2,0,0"
-                                   Text="Generated from the engine's schema. Nothing saves as you type." />
+                                   Text="Nothing saves as you type. A feature's knobs appear when you switch it on; the filter finds any of them." />
                     </StackPanel>
                 </DockPanel>
 
@@ -647,6 +669,16 @@
                                      Foreground="{Binding UpdateBrush}" />
                             </TextBlock>
                         </DockPanel>
+                        <!-- What the last Save, Import, Reset or webhook test did,
+                             where the person who pressed it is looking. Red when
+                             it failed; fades once they edit again. -->
+                        <TextBlock Text="{Binding SettingsStatus}" Margin="0,8,0,0"
+                                   TextWrapping="Wrap"
+                                   FontFamily="{StaticResource Sans}"
+                                   FontSize="{StaticResource SizeLabel}"
+                                   Foreground="{Binding SettingsStatusBrush}"
+                                   Visibility="{Binding HasSettingsStatus,
+                                       Converter={StaticResource BoolToVisible}}" />
                         <ProgressBar Style="{StaticResource Meter}" Margin="0,10,0,0"
                                      Value="{Binding UpdateProgress}"
                                      Foreground="{StaticResource Green}"

@@ -1,15 +1,17 @@
 """The settings form, described once.
 
-Both the (legacy) tkinter UI and the C# shell render from this list, so a new
-knob is added in exactly one place. Kinds are "str" | "int" | "float" | "bool".
+The C# shell renders from this list, so a new knob is added in exactly one
+place. Kinds are "str" | "int" | "float" | "bool" | "secret" | "hotkey": a
+secret is masked and never exported, a hotkey is captured from a keypress
+rather than typed.
 """
 
 from __future__ import annotations
 
 # (section, config section attribute, field attribute, label, kind)
 FORM: list[tuple[str, str, str, str, str]] = [
-    ("Hotkeys", "hotkeys", "start_stop", "Toggle macro", "str"),
-    ("Hotkeys", "hotkeys", "panic", "Panic key", "str"),
+    ("Hotkeys", "hotkeys", "start_stop", "Toggle macro", "hotkey"),
+    ("Hotkeys", "hotkeys", "panic", "Panic key", "hotkey"),
     ("Detection", "detection", "color_tolerance", "Color tolerance (±)", "int"),
     ("Detection", "detection", "min_bar_pixels", "Min bar pixels", "int"),
     ("Detection", "detection", "black_screen_threshold", "Black-screen threshold", "float"),
@@ -122,9 +124,53 @@ EFFECTS: dict[tuple[str, str], str] = {
 # already broken should not be the first thing a new user scrolls past.
 ADVANCED: frozenset[str] = frozenset({"Detection"})
 
+# A field only shows while one of its gates is on: a ticked box, or a text
+# field with something in it. The knobs of a feature nobody has switched on
+# are noise, and a form of fifty-eight rows is where the one that matters
+# gets lost. A gate comes earlier in FORM than the field it reveals, so the
+# knobs appear under the box that opened them; the shell also hides a field
+# whose gate is itself hidden.
+_CRAFT_OR_BUY = [("bait", "auto_craft"), ("bait", "auto_buy")]
+_STORE = [("fruit", "auto_store")]
+_WEBHOOK = [("webhook", "url")]
+_SOUND = [("sound", "enabled")]
+GATES: dict[tuple[str, str], list[tuple[str, str]]] = {
+    ("fishing", "alt_slot_key"): [("fishing", "equip_every_cast")],
+    ("bait", "every_n_catches"): _CRAFT_OR_BUY,
+    ("bait", "menu_delay"): _CRAFT_OR_BUY,
+    ("bait", "talk_key"): [("bait", "auto_craft")],
+    ("bait", "shop_key"): [("bait", "auto_buy")],
+    ("bait", "shop_hold"): [("bait", "auto_buy")],
+    ("bait", "buy_amount"): [("bait", "auto_buy")],
+    ("bait", "walk_to_sen"): [("bait", "auto_craft")],
+    ("bait", "walk_keys"): [("bait", "walk_to_sen")],
+    ("bait", "return_keys"): [("bait", "walk_to_sen")],
+    ("bait", "max_walk"): [("bait", "walk_to_sen")],
+    ("bait", "home_tolerance"): [("bait", "walk_to_sen")],
+    ("fruit", "match_threshold"): _STORE,
+    ("fruit", "store_wait"): _STORE,
+    ("fruit", "store_search_x"): _STORE,
+    ("fruit", "store_search_y"): _STORE,
+    ("fruit", "drop_duplicates"): _STORE,
+    ("fruit", "drop_key"): [("fruit", "drop_duplicates")],
+    ("webhook", "user_id"): _WEBHOOK,
+    ("webhook", "ping_on_fruit"): _WEBHOOK,
+    ("webhook", "ping_on_error"): _WEBHOOK,
+    ("webhook", "log_milestones"): _WEBHOOK,
+    ("webhook", "milestone_every"): [("webhook", "log_milestones")],
+    ("webhook", "periodic_stats_minutes"): _WEBHOOK,
+    ("sound", "sensitivity"): _SOUND,
+    ("sound", "trigger_hold"): _SOUND,
+    ("sound", "cooldown"): _SOUND,
+    ("sound", "alert_wav"): _SOUND,
+    ("ui", "preview_scale"): [("ui", "live_preview")],
+}
+
 
 def schema() -> list[dict]:
     """The form as plain data, for the C# shell."""
     return [{"section": section, "obj": obj, "attr": attr, "label": label, "kind": kind,
-             "effect": EFFECTS.get((obj, attr), ""), "advanced": section in ADVANCED}
+             "effect": EFFECTS.get((obj, attr), ""), "advanced": section in ADVANCED,
+             "gate": [{"obj": g_obj, "attr": g_attr}
+                      for g_obj, g_attr in GATES.get((obj, attr), [])]}
             for section, obj, attr, label, kind in FORM]
