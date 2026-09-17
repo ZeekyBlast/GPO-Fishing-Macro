@@ -1,6 +1,6 @@
-## 1.3.1 - Linux support, the browser window, and the dusk fix
+## 1.3.2 - Linux support, the browser window, and the dusk fix
 
-**Pre-release: no Windows installer yet.** Windows users on 1.2.0 are not prompted to update. The `GPO Fishing Macro Setup 1.3.1.exe` will be attached once it is built and checked on Windows; until then, Windows runs from source exactly as before (`run-from-source.bat`).
+**Pre-release: no Windows installer yet.** Windows users on 1.2.0 are not prompted to update. The `GPO Fishing Macro Setup 1.3.2.exe` will be attached once it is built and checked on Windows; until then, Windows runs from source exactly as before (`run-from-source.bat`).
 
 ### Linux
 
@@ -16,7 +16,7 @@ That makes the venv, starts the engine and opens the window in your browser at `
 
 ### What changed
 
-- **Dusk fix (1.3.1)** - after ~40 minutes the sea passed for a gauge: the bot pressed the mouse on an empty cast and pulled the line back every three seconds. A gauge is now required to be a narrow pill with dark borders, and a bite takes three frames. Also: the walk home's trim now converges however far it overshot.
+- **Dusk fix (1.3.1, shipped as 1.3.2)** - after ~40 minutes the sea passed for a gauge: the bot pressed the mouse on an empty cast and pulled the line back every three seconds. A gauge is now required to be a narrow pill with dark borders, and a bite takes three frames. Also: the walk home's trim now converges however far it overshot.
 
 - **The browser window** - `python main.py --serve` on any OS: the same dashboard, calibration and settings, served on this machine only, with a per-launch token.
 - **The engine on Linux** - Win32 and X11 backends behind one interface; grabs are window-relative all the way down, so the game can be on any monitor; the corner failsafe covers every monitor; the game's own window class outranks a browser tab titled "Roblox".
