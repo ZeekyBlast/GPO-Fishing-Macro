@@ -30,6 +30,13 @@ GREEN_DIM = "#1E3A2C"   # accent at rest (meter track fill)
 AMBER = "#E0A33A"       # attention, not yet a fault: waiting, paused, timeout
 RED = "#C2453F"         # fault: error, escape, panic
 
+# The palette by name, for a shell that sets its own variables from it.
+PALETTE = {
+    "BG": BG, "SURFACE": SURFACE, "SURFACE_2": SURFACE_2, "LINE": LINE,
+    "LINE_STRONG": LINE_STRONG, "TEXT": TEXT, "TEXT_2": TEXT_2, "MUTED": MUTED,
+    "FAINT": FAINT, "GREEN": GREEN, "GREEN_DIM": GREEN_DIM, "AMBER": AMBER, "RED": RED,
+}
+
 # State colour is never the only signal - every use is paired with a word.
 STATE_COLORS = {
     "idle": FAINT, "focus": MUTED, "prep": MUTED, "cast": MUTED,
@@ -55,6 +62,9 @@ SANS = "Segoe UI"
 
 # Fixed scale, not fluid: metadata / label / body / heading / readout / hero.
 SIZE_META, SIZE_LABEL, SIZE_BODY, SIZE_HEAD, SIZE_READOUT, SIZE_HERO = 10, 11, 12, 14, 15, 30
+SIZE_COUNTER = 22
+SIZES = {"meta": SIZE_META, "label": SIZE_LABEL, "body": SIZE_BODY, "head": SIZE_HEAD,
+         "readout": SIZE_READOUT, "counter": SIZE_COUNTER, "hero": SIZE_HERO}
 
 
 def mono(size: int = SIZE_BODY, bold: bool = False) -> tuple:

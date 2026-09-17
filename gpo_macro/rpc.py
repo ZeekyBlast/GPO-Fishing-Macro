@@ -1,17 +1,23 @@
-"""Headless engine driven over stdin/stdout with newline-delimited JSON.
+"""Headless engine: commands in, frames out, over whichever transport asks.
 
-The C# shell (ui-csharp/) spawns `python main.py --rpc` and is the only UI.
-Everything that touches the screen, the mouse or OpenCV stays here; the shell
-draws and asks.
+Everything that touches the screen, the mouse or OpenCV stays here; a shell
+draws and asks. Two shells speak to it:
+
+- the C# window spawns `python main.py --rpc` and uses newline-delimited
+  JSON on stdin/stdout (run_rpc below);
+- the browser page gets the same frames over Server-Sent Events and sends
+  the same commands by POST (web.py).
 
     shell -> engine   {"id": 7, "cmd": "start"}
     engine -> shell   {"t": "reply",  "id": 7, "ok": true, "result": {...}}
                       {"t": "event",  "kind": "fish", "message": "..."}
                       {"t": "tick",   "state": "reel", "stats": {...}, ...}
 
+The Engine writes frames to a `sink` callable and dispatch() hands the reply
+back to the caller, so the transport decides where each goes. In RPC mode
 stdout carries the protocol and nothing else: it is captured on startup and
-`sys.stdout` is repointed at stderr, so a stray print from any library lands in
-the log instead of corrupting a frame.
+`sys.stdout` is repointed at stderr, so a stray print from any library lands
+in the log instead of corrupting a frame.
 """
 
 from __future__ import annotations
@@ -23,7 +29,9 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional
+
+import numpy as np
 
 from . import APP_NAME, __version__
 from . import form
@@ -43,9 +51,35 @@ log = logging.getLogger("gpo.rpc")
 TICK_HZ = 10.0
 PREVIEW_HZ = 5.0
 
+Sink = Callable[[dict], None]
+
+
+class StdoutFrames:
+    """The RPC transport's sink: one JSON line per frame on the real stdout,
+    which is taken over so nothing else can write a partial frame."""
+
+    def __init__(self) -> None:
+        self._out = sys.stdout
+        self._lock = threading.Lock()
+        sys.stdout = sys.stderr   # protocol guard: nothing else may write a frame
+
+    def __call__(self, message: dict) -> None:
+        line = json.dumps(message, default=str)
+        with self._lock:
+            self._out.write(line + "\n")
+            self._out.flush()
+
+
+def _png_base64(frame: np.ndarray) -> str:
+    import cv2
+    ok, buf = cv2.imencode(".png", frame)
+    if not ok:
+        raise ValueError("could not encode the frame")
+    return base64.b64encode(buf).decode("ascii")
+
 
 class Engine:
-    def __init__(self, store: ConfigStore):
+    def __init__(self, store: ConfigStore, sink: Optional[Sink] = None):
         self.store = store
         self.bus = EventBus()
         self.stats = Stats()
@@ -61,12 +95,10 @@ class Engine:
 
         self._no_gauge = False      # sticky until a test passes
         self._grabber: Optional[ScreenGrabber] = None   # lazily made on the command thread
-        self._out = sys.stdout
-        self._out_lock = threading.Lock()
+        self._sink: Sink = sink or (lambda message: None)
         self._running = threading.Event()
         self._last_preview = 0.0
-
-        sys.stdout = sys.stderr   # protocol guard: nothing else may write a frame
+        self._capture: Optional[np.ndarray] = None      # the last client-area capture
 
     @property
     def cfg(self) -> AppConfig:
@@ -80,13 +112,10 @@ class Engine:
     # ----------------------------------------------------------------- output
 
     def send(self, **message: Any) -> None:
-        line = json.dumps(message, default=str)
-        with self._out_lock:
-            try:
-                self._out.write(line + "\n")
-                self._out.flush()
-            except (BrokenPipeError, ValueError, OSError):
-                self._running.clear()   # shell went away
+        try:
+            self._sink(message)
+        except (BrokenPipeError, ValueError, OSError):
+            self._running.clear()   # shell went away
 
     def _on_event(self, event: Event) -> None:
         self.send(t="event", kind=event.kind, message=event.message,
@@ -101,16 +130,36 @@ class Engine:
         self.hotkeys.start()
         self._sync_sound()
         self._running.set()
-        # The shell draws state and event colours from these rather than
-        # keeping its own table: what a colour *means* stays in theme.py.
-        self.send(t="hello", app=APP_NAME, version=__version__,
-                  schema=form.schema(), notes=form.SECTION_NOTES,
-                  config=self.cfg.to_dict(), defaults=AppConfig().to_dict(),
-                  settings_path=str(self.store.path),
-                  state_colors=theme.STATE_COLORS,
-                  event_styles={kind: {"mark": mark, "colour": colour}
-                                for kind, (mark, colour) in theme.EVENT_STYLES.items()})
+        self.send(**self.hello_frame())
         threading.Thread(target=self._tick_loop, name="rpc-tick", daemon=True).start()
+
+    def hello_frame(self) -> dict[str, Any]:
+        """Everything a shell needs before its first tick: the settings schema,
+        the config, and the theme. A shell draws state and event colours from
+        these rather than keeping its own table, so what a colour *means*
+        stays in theme.py. Rebuilt for every client that connects late."""
+        return dict(t="hello", app=APP_NAME, version=__version__,
+                    schema=form.schema(), notes=form.SECTION_NOTES,
+                    config=self.cfg.to_dict(), defaults=AppConfig().to_dict(),
+                    settings_path=str(self.store.path),
+                    state_colors=theme.STATE_COLORS,
+                    event_styles={kind: {"mark": mark, "colour": colour}
+                                  for kind, (mark, colour) in theme.EVENT_STYLES.items()},
+                    theme={"palette": dict(theme.PALETTE), "mono": theme.MONO,
+                           "sans": theme.SANS, "sizes": dict(theme.SIZES)},
+                    templates=self._templates(), platform=sys.platform)
+
+    def _templates(self) -> dict[str, bool]:
+        """Which snipped templates exist on disk. The browser cannot look."""
+        cfg = self.cfg
+        return {"fruit": Path(cfg.fruit.template_path).is_file(),
+                "prompt": Path(cfg.bait.prompt_template).is_file(),
+                "tag": Path(cfg.bait.tag_template).is_file()}
+
+    def recent_event_frames(self, limit: int = 100) -> list[dict[str, Any]]:
+        """The tail of the log, as event frames, for a shell that joins late."""
+        return [dict(t="event", kind=e.kind, message=e.message, data=e.data,
+                     ts=e.timestamp, id=e.id) for e in self.stats.recent_events(limit)]
 
     def shutdown(self) -> None:
         self._running.clear()
@@ -218,19 +267,20 @@ class Engine:
 
     # --------------------------------------------------------------- commands
 
-    def dispatch(self, request: dict[str, Any]) -> None:
+    def dispatch(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Run one command and return its reply frame. The transport delivers
+        it: the stdin loop writes it out, the web server answers the POST."""
         name = str(request.get("cmd", ""))
         handler = getattr(self, "cmd_" + name, None) if name.isidentifier() else None
         if handler is None:
-            self.send(t="reply", id=request.get("id"), ok=False,
-                      error="unknown command: " + name)
-            return
+            return dict(t="reply", id=request.get("id"), ok=False,
+                        error="unknown command: " + name)
         try:
             result = handler(request) or {}
-            self.send(t="reply", id=request.get("id"), ok=True, result=result)
+            return dict(t="reply", id=request.get("id"), ok=True, result=result)
         except Exception as exc:
             log.exception("command %s failed", name)
-            self.send(t="reply", id=request.get("id"), ok=False, error=str(exc))
+            return dict(t="reply", id=request.get("id"), ok=False, error=str(exc))
 
     def cmd_ping(self, _req) -> dict:
         return {"pong": time.time()}
@@ -279,7 +329,7 @@ class Engine:
         return {"reset": True}
 
     def cmd_get_config(self, _req) -> dict:
-        return {"config": self.cfg.to_dict()}
+        return {"config": self.cfg.to_dict(), "templates": self._templates()}
 
     def cmd_set_config(self, req) -> dict:
         patch = req.get("patch") or {}
@@ -292,7 +342,7 @@ class Engine:
         self.hotkeys.restart()
         self.notifier.restart_periodic()
         self._sync_sound()
-        return {"config": self.cfg.to_dict()}
+        return {"config": self.cfg.to_dict(), "templates": self._templates()}
 
     def _check_hotkeys(self, hotkeys: Any) -> None:
         """Refuse a key the listener cannot bind, or both actions on one key,
@@ -383,20 +433,59 @@ class Engine:
         frame = self.grabber().grab_region(self._tracker, self.cfg.scan_region)
         reading = vision.find_bar(frame, self.cfg.detection)
         self._no_gauge = reading is None
+        annotated = vision.annotate(frame, reading)
         out = Path("test_detection.png").resolve()
-        cv2.imwrite(str(out), vision.annotate(frame, reading))
+        cv2.imwrite(str(out), annotated)
         if reading is not None:
             detail = ("bar_y=%.0f fish_y=%.0f overlap=%s"
                       % (reading.marker_y, reading.seg_center_y, reading.overlap))
         else:
             detail = "no gauge"
-        return {"path": str(out), "detail": detail, "found": reading is not None}
+        # The file is what the C# shell reads; the browser gets the pixels inline.
+        return {"path": str(out), "detail": detail, "found": reading is not None,
+                "png": _png_base64(annotated)}
+
+    def cmd_capture(self, _req) -> dict:
+        """The game's client area, as a PNG, for the browser to pick on.
+
+        Every coordinate the page reads off this picture is window-relative
+        by construction, which is what every setting stores. Where grabs come
+        from the screen (Windows), the game is brought to the front first so
+        the browser is not what gets captured; on X11 the window's own pixels
+        come through regardless. The frame is kept so a colour sample or a
+        template snip reads the very pixels the user clicked on."""
+        info = self._tracker.refresh()
+        if info is None:
+            raise ValueError("no Roblox window - launch GPO first")
+        if sys.platform == "win32":
+            self._tracker.system.focus_window(info.hwnd)
+            time.sleep(0.25)
+        frame = self.grabber().grab_client(self._tracker)
+        self._capture = frame
+        height, width = frame.shape[:2]
+        return {"png": _png_base64(frame), "width": int(width), "height": int(height),
+                "origin_x": self._tracker.origin[0], "origin_y": self._tracker.origin[1]}
+
+    def _capture_crop(self, region: Region) -> np.ndarray:
+        """A box out of the last capture, for from_capture commands."""
+        if self._capture is None:
+            raise ValueError("nothing captured yet")
+        height, width = self._capture.shape[:2]
+        x1, y1 = max(0, region.x1), max(0, region.y1)
+        x2, y2 = min(width, region.x2), min(height, region.y2)
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError("that box is outside the capture")
+        return self._capture[y1:y2, x1:x2]
 
     def cmd_sample_color(self, req) -> dict:
-        """Median RGB of a 7x7 patch at a window-relative point."""
-        import numpy as np
+        """Median RGB of a 7x7 patch at a window-relative point - live, or
+        from the last capture when the page says from_capture."""
         x, y = int(req["x"]), int(req["y"])
-        frame = self.grabber().grab_region(self._tracker, Region(x - 3, y - 3, x + 4, y + 4))
+        patch = Region(x - 3, y - 3, x + 4, y + 4)
+        if req.get("from_capture"):
+            frame = self._capture_crop(patch)
+        else:
+            frame = self.grabber().grab_region(self._tracker, patch)
         med = np.median(frame.reshape(-1, 3), axis=0).astype(int)
         rgb = [int(med[2]), int(med[1]), int(med[0])]        # BGR -> RGB
         attr = req.get("attr")
@@ -411,7 +500,10 @@ class Engine:
         region = Region(int(req["x1"]), int(req["y1"]), int(req["x2"]), int(req["y2"]))
         if not region.valid():
             raise ValueError("empty region")
-        frame = self.grabber().grab_region(self._tracker, region)
+        if req.get("from_capture"):
+            frame = self._capture_crop(region)
+        else:
+            frame = self.grabber().grab_region(self._tracker, region)
         path = Path(req.get("path") or self.cfg.fruit.template_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(path), frame)
@@ -431,7 +523,7 @@ class Engine:
 
 
 def run_rpc(store: ConfigStore) -> int:
-    engine = Engine(store)
+    engine = Engine(store, sink=StdoutFrames())
     engine.start()
     try:
         for line in sys.stdin:
@@ -443,7 +535,7 @@ def run_rpc(store: ConfigStore) -> int:
             except json.JSONDecodeError as exc:
                 engine.send(t="reply", id=None, ok=False, error="bad JSON: " + str(exc))
                 continue
-            engine.dispatch(request)
+            engine.send(**engine.dispatch(request))
             if not engine._running.is_set():
                 break
     except KeyboardInterrupt:

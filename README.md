@@ -81,7 +81,8 @@ run-from-source.bat
 
 `run-from-source.bat` creates the venv if it is missing, then opens the window.
 `python main.py` runs the same bot with no window at all, printing to the
-console, which is useful when the interface itself is what is misbehaving.
+console, which is useful when the interface itself is what is misbehaving;
+`python main.py --serve` opens the browser window instead (below).
 
 To produce an installer of your own:
 
@@ -93,14 +94,27 @@ That bundles the runtime, runs the self-checks against it, publishes the
 window as one self-contained file, and writes `dist\GPO Fishing Macro Setup
 <version>.exe`.
 
+### The browser window
+
+`python main.py --serve` runs the engine and opens the same dashboard,
+calibration and settings screens in your browser, at `http://127.0.0.1:8790`.
+It exists for Linux, where the WPF window cannot run, and works on Windows
+too. It listens on this machine only, and every request carries a token
+baked into the page, so nothing else on the network - or another tab - can
+drive your mouse through it.
+
+Calibration in the browser has no overlay: a pick is made on a **capture of
+the game's client area**. Press the action, the page grabs the game, and you
+drag the box or click the points on the game's own pixels, which makes every
+coordinate window-relative by construction. The game does not have to be in
+front of the browser for that (on Windows it is brought to the front for the
+capture itself, then you come back).
+
 ## Linux
 
-The engine - detection, the reel controller, casting, bait upkeep, fruit
-storage, hotkeys, Discord - runs on Linux. The window does not yet, so
-Linux is console mode: `run-from-source.sh` makes the venv and starts
-`main.py`, hotkeys work, and events print to the terminal and to
-`gpo_macro.log`. Calibration needs the window, so bring a `settings.json`
-calibrated on Windows, or set `scan_region` and the click points by hand.
+The whole macro runs on Linux: `run-from-source.sh` makes the venv, starts
+the engine and opens the window in your browser. Add `--console` for the
+terminal-only bot (hotkeys, events in the terminal and `gpo_macro.log`).
 
 What it needs:
 
@@ -327,6 +341,7 @@ gpo_macro/
   platform/          what differs per OS, behind one WindowSystem interface
     win32.py         user32 + mss + winsound
     x11.py           python-xlib + XGetImage + XTest (XWayland included)
+  web/               the browser shell: SSE + POST server, static/ holds the page
   capture.py         window tracking and window-relative grabs
   vision.py          color masks, bar reading, auto-calibration
   controller.py      PID -> hold/release decisions
@@ -338,7 +353,7 @@ gpo_macro/
   stats.py           thread-safe counters + event bus
   hotkeys.py         rebindable global hotkeys
   form.py            the settings form, described once for both UIs
-  rpc.py             headless engine: JSON lines on stdin/stdout
+  rpc.py             headless engine: commands in, frames out (stdin/stdout or the web server)
   theme.py           colour, type and spacing tokens (see DESIGN.md)
 ui-csharp/           the WPF window: dashboard, settings, calibration
   Engine.cs          spawns and speaks to `main.py --rpc`

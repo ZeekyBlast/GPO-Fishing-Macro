@@ -47,19 +47,43 @@ def send(proc, **request):
     proc.stdin.flush()
 
 
-def make_engine(name: str):
-    """An in-process engine, not started: commands run, nothing is sent."""
-    import io
-
+def make_engine(name: str, sink=None):
+    """An in-process engine, not started: commands run, frames go to `sink`
+    (nowhere by default)."""
     from gpo_macro.config import AppConfig, ConfigStore
     from gpo_macro.rpc import Engine
 
-    real_stdout = sys.stdout
-    sys.stdout = io.StringIO()                 # the engine repoints it; keep ours
-    try:
-        return Engine(ConfigStore(paths.scratch() / name, AppConfig()))
-    finally:
-        sys.stdout = real_stdout
+    return Engine(ConfigStore(paths.scratch() / name, AppConfig()), sink=sink)
+
+
+def check_dispatch_and_hello() -> None:
+    """dispatch hands its reply back to whichever transport asked - the
+    stdin loop writes it, the browser gets it as the HTTP response - and the
+    hello frame can be rebuilt for a client that connects late."""
+    from gpo_macro import theme
+
+    frames: list[dict] = []
+    engine = make_engine("dispatch-settings.json", sink=frames.append)
+
+    reply = engine.dispatch({"id": 4, "cmd": "ping"})
+    assert reply["t"] == "reply" and reply["id"] == 4 and reply["ok"], reply
+    assert "pong" in reply["result"]
+    assert frames == [], "dispatch sent the reply itself; the transport owns that"
+    bad = engine.dispatch({"id": 5, "cmd": "nonsense"})
+    assert bad["ok"] is False and "unknown command" in bad["error"], bad
+
+    # A capture is the game's client area; without the game it is a refusal.
+    cap = engine.dispatch({"id": 6, "cmd": "capture"})
+    if cap["ok"]:
+        assert cap["result"]["png"] and cap["result"]["width"] > 0, cap["result"].keys()
+    else:
+        assert "window" in cap["error"].lower(), cap
+
+    hello = engine.hello_frame()
+    assert hello["t"] == "hello" and hello["schema"] and hello["config"]["hotkeys"]["start_stop"]
+    assert hello["theme"]["palette"]["GREEN"] == theme.GREEN, "the page's colours come from theme.py"
+    assert hello["theme"]["mono"] == theme.MONO
+    print("dispatch ok - replies returned, hello rebuildable with the palette")
 
 
 def check_hotkey_validation() -> None:
@@ -128,10 +152,13 @@ def check_toggle_resumes_paused() -> None:
 def main() -> int:
     check_toggle_resumes_paused()
     check_hotkey_validation()
+    check_dispatch_and_hello()
 
     exe = str(PYTHON) if PYTHON.exists() else sys.executable
+    # A scratch settings file: the round trips below write, and the real
+    # settings.json is the user's.
     proc = subprocess.Popen(
-        [exe, str(ROOT / "main.py"), "--rpc"],
+        [exe, str(ROOT / "main.py"), "--rpc", "--settings", str(paths.scratch() / "rpc-settings.json")],
         cwd=str(ROOT), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL, text=True, encoding="utf-8", bufsize=1)
     try:

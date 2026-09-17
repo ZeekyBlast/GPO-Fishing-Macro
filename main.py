@@ -1,7 +1,8 @@
 """Entry point. The window lives in ui-csharp/; this is the engine.
 
     python main.py                # console bot: hotkeys + log output, no window
-    python main.py --rpc          # engine for the C# shell (start.bat)
+    python main.py --rpc          # engine for the C# shell, JSON lines on stdin/stdout
+    python main.py --serve        # engine plus the browser shell on 127.0.0.1:8790
 
 Per-monitor DPI awareness is set here and mirrored by the shell's manifest, so
 a calibration coordinate means the same pixel in both processes.
@@ -138,6 +139,11 @@ def _run(argv: list[str]) -> int:
                         help="run the bot with log output (the default)")
     parser.add_argument("--rpc", action="store_true",
                         help="engine speaking JSON lines on stdin/stdout, for the C# shell")
+    parser.add_argument("--serve", action="store_true",
+                        help="engine plus the browser shell, served on this machine only")
+    parser.add_argument("--port", type=int, default=8790, help="port for --serve (default 8790)")
+    parser.add_argument("--no-browser", action="store_true",
+                        help="with --serve: do not open the page automatically")
     parser.add_argument("--settings", default=str(SETTINGS_PATH), help="settings.json path")
     args = parser.parse_args(argv)
 
@@ -150,6 +156,9 @@ def _run(argv: list[str]) -> int:
     if args.rpc:
         from gpo_macro.rpc import run_rpc
         return run_rpc(store)
+    if args.serve:
+        from gpo_macro.web import serve
+        return serve(store, port=args.port, open_browser=not args.no_browser)
 
     return run_console(store)
 

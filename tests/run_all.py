@@ -20,7 +20,7 @@ HERE = Path(__file__).resolve().parent
 # slower than the rest; order is cheapest-first to fail fast.
 ORDER = ["test_theme.py", "test_config.py", "test_control.py", "test_capture.py",
          "test_input.py", "test_vision.py", "test_tasks.py", "test_notify.py",
-         "test_fisher.py", "test_x11.py", "test_rpc.py"]
+         "test_fisher.py", "test_x11.py", "test_web.py", "test_rpc.py"]
 
 
 def main() -> int:

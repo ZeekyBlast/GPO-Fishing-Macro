@@ -67,8 +67,11 @@ Source: "..\main.py";                    DestDir: "{app}"; Flags: ignoreversion
 Source: "..\settings.example.json";      DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md";                  DestDir: "{app}"; Flags: ignoreversion
 Source: "..\gpo_macro\*.py";             DestDir: "{app}\gpo_macro"; Flags: ignoreversion
-; The per-OS backends live in a subpackage; the glob above is not recursive.
+; The per-OS backends and the browser shell live in subpackages; the glob
+; above is not recursive.
 Source: "..\gpo_macro\platform\*.py";    DestDir: "{app}\gpo_macro\platform"; Flags: ignoreversion
+Source: "..\gpo_macro\web\*.py";         DestDir: "{app}\gpo_macro\web"; Flags: ignoreversion
+Source: "..\gpo_macro\web\static\*";     DestDir: "{app}\gpo_macro\web\static"; Flags: ignoreversion
 ; The bundled interpreter and its packages: this is why nothing has to be
 ; installed or pip-ed by hand.
 Source: "..\build\runtime\*";            DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs

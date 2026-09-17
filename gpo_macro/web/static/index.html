@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GPO Fishing Macro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="app.css">
+<script>window.GPO_TOKEN = "__TOKEN__";</script>
+</head>
+<body>
+<div id="app">
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-name">GPO FISHING</div>
+      <div class="brand-version" id="versionLine">version -</div>
+    </div>
+    <div class="nav">
+      <button class="nav-item is-current" data-screen="dashboard"><span class="dot" id="dotDashboard"></span>Dashboard</button>
+      <button class="nav-item" data-screen="calibration"><span class="dot" id="dotCalibration"></span>Calibration</button>
+      <button class="nav-item" data-screen="settings"><span class="dot" id="dotSettings"></span>Settings</button>
+    </div>
+    <div class="readiness">
+      <div class="readiness-head">WHAT IT SEES</div>
+      <div class="reading"><div class="reading-label">roblox</div><div class="reading-value" id="readRoblox">-</div></div>
+      <div class="reading"><div class="reading-label">region</div><div class="reading-value" id="readRegion">-</div></div>
+      <div class="reading"><div class="reading-label">optional</div><div class="reading-value" id="readOptional">-</div></div>
+      <div class="reading"><div class="reading-label">engine</div><div class="reading-value" id="readEngine">connecting</div></div>
+    </div>
+  </nav>
+
+  <main class="content">
+    <!-- ============================================ DASHBOARD ========= -->
+    <section class="screen is-current" id="screen-dashboard">
+      <div class="dash">
+        <div class="panel status">
+          <div class="state-word" id="stateWord">IDLE</div>
+          <div class="status-centre">
+            <div class="window-line" id="windowLine">looking for Roblox...</div>
+            <div class="hint-row">
+              <span class="hint" id="hint"></span>
+              <button class="btn quiet small" id="recovery" hidden></button>
+            </div>
+          </div>
+          <div class="controls">
+            <button class="btn accent" id="startBtn">Start</button>
+            <button class="btn quiet" id="pauseBtn" disabled>Pause</button>
+            <button class="btn quiet danger" id="panicBtn">Panic</button>
+          </div>
+        </div>
+
+        <div class="tiles">
+          <div class="panel tile"><div class="tile-label">CAUGHT</div><div class="tile-value" id="tileCaught">-</div></div>
+          <div class="panel tile"><div class="tile-label">PER HOUR</div><div class="tile-value" id="tilePerHour">-</div></div>
+          <div class="panel tile"><div class="tile-label">HOOK RATE</div><div class="tile-value" id="tileHookRate">-</div></div>
+          <div class="panel tile"><div class="tile-label">ESCAPED</div><div class="tile-value" id="tileEscaped">-</div></div>
+          <div class="panel tile"><div class="tile-label">TIMEOUTS</div><div class="tile-value" id="tileTimeouts">-</div></div>
+          <div class="panel tile"><div class="tile-label">SESSION</div><div class="tile-value" id="tileSession">-</div></div>
+        </div>
+
+        <div class="panel reel">
+          <div class="reel-readings">
+            <div class="reel-head">
+              <span class="reel-title">REEL</span>
+              <span class="hold" id="holdWord">-</span>
+              <span class="onfish" id="onFish"></span>
+              <span class="preview-note" id="previewNote"></span>
+            </div>
+            <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+            <div class="telemetry" id="telemetry">start the macro to see live readings</div>
+            <div class="tuning" id="tuningNote"></div>
+          </div>
+          <div class="capture-well preview-well" id="previewWell">
+            <span class="well-empty">no fight</span>
+            <img id="preview" alt="">
+          </div>
+        </div>
+
+        <div class="panel log-panel">
+          <div class="log-head">
+            <span class="heading">EVENT LOG</span>
+            <span class="log-count" id="logCount">0 lines · capped at 300</span>
+          </div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================== CALIBRATION ========= -->
+    <section class="screen" id="screen-calibration">
+      <div class="cal">
+        <div class="cal-main">
+          <div class="cal-head">
+            <div class="title">CALIBRATION</div>
+            <div class="note" id="calSummary"></div>
+          </div>
+          <div class="cards" id="cards"></div>
+          <div class="note cal-foot">Every point and region is stored relative to the Roblox window, so moving the window does not mean redoing any of this. Picks are made on a capture of the game, so the browser never has to sit over it.</div>
+        </div>
+        <aside class="rail">
+          <div class="heading">WHAT THE MACRO SEES</div>
+          <div class="panel rail-readings" id="railReadings"></div>
+          <div class="capture-well test-well" id="testWell">
+            <span class="well-empty" id="testEmpty">no test yet</span>
+            <img id="testImage" alt="">
+            <span class="well-tag" id="testTag"></span>
+          </div>
+          <div class="log rail-log" id="railLog"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ============================================= SETTINGS ========= -->
+    <section class="screen" id="screen-settings">
+      <div class="settings">
+        <div class="settings-head">
+          <div>
+            <div class="title">SETTINGS</div>
+            <div class="note">Nothing saves as you type. A feature's knobs appear when you switch it on; the filter finds any of them.</div>
+          </div>
+          <div class="settings-tools">
+            <label class="filter"><span>filter</span><input id="filter" type="text" autocomplete="off" spellcheck="false"></label>
+            <label class="check"><input type="checkbox" id="showAdvanced"><span class="box"></span><span>Show advanced</span></label>
+          </div>
+        </div>
+        <div class="form" id="form"></div>
+        <div class="savebar">
+          <div class="savebar-row">
+            <button class="btn accent" id="saveBtn">Save settings</button>
+            <button class="btn quiet" id="resetStatsBtn">Reset session stats</button>
+            <button class="btn quiet" id="exportBtn" title="Save these settings to a file, without the webhook URL">Export…</button>
+            <button class="btn quiet" id="importBtn" title="Load a settings file over these">Import…</button>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+            <span class="dirty" id="dirtyLine"></span>
+            <span class="version-line" id="settingsVersion"></span>
+          </div>
+          <div class="settings-status" id="settingsStatus" hidden></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- The picker: a capture of the game's client area, drawn to fit, on
+     which a box is dragged or points are clicked. Coordinates come back
+     window-relative because the picture is the window. -->
+<div id="picker" class="picker" hidden>
+  <div class="picker-stage"><canvas id="pickCanvas"></canvas></div>
+  <div class="picker-caption panel">
+    <div class="picker-text" id="pickText"></div>
+    <div class="picker-keys" id="pickKeys"></div>
+  </div>
+</div>
+
+<!-- A wizard step: how to get the game into the state the next pick needs. -->
+<div id="prompt" class="prompt" hidden>
+  <div class="prompt-box panel">
+    <div class="heading" id="promptHeading"></div>
+    <div class="prompt-text" id="promptText"></div>
+    <div class="prompt-actions">
+      <button class="btn accent" id="promptOk">Capture and pick</button>
+      <button class="btn quiet" id="promptSkip">Skip</button>
+      <button class="btn quiet" id="promptCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

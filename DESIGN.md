@@ -16,6 +16,17 @@ spawns `python main.py --rpc` and talks to it in newline-delimited JSON over
 stdin/stdout ([`gpo_macro/rpc.py`](gpo_macro/rpc.py)): commands in, a 10 Hz
 `tick` and every bus event out.
 
+There is a second shell, the browser page under [`gpo_macro/web/`](gpo_macro/web/),
+started by `python main.py --serve`. It is the same three screens drawn from
+the same frames - the engine writes to a sink, and the transport decides
+whether that is stdout or a Server-Sent Events stream - so a knob or a fault
+added to the engine reaches both shells. It exists for Linux, where WPF cannot
+run, and it changes one thing about calibration: there is no overlay.
+A pick is made on a capture of the game's client area, which makes every
+coordinate window-relative by construction and needs nothing from the OS. The
+server listens on loopback only and every request carries a per-launch token
+baked into the page, so a web page you happen to have open cannot reach it.
+
 The split is drawn where the risk is. Vision, capture, input, hotkeys and the
 control loop stay in Python, tuned against real gameplay and untouched by the
 move. The shell owns pixels and nothing else, so a bug in it cannot mis-aim a
