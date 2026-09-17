@@ -65,15 +65,19 @@ def run_console(store: ConfigStore) -> int:
     bot: list[FishingBot] = []
 
     def toggle() -> None:
+        from gpo_macro.fisher import State
         if bot and bot[0].is_alive():
-            bot[0].stop()
+            if bot[0].state == State.PAUSED:
+                bot[0].request_pause_toggle()     # a paused bot resumes
+            else:
+                bot[0].stop()
         elif cfg.scan_region.valid():
             bot.clear()
             bot.append(FishingBot(cfg, stats, bus))
             bot[0].start()
         else:
-            print("scan region not calibrated - run start.bat once "
-                  "and use the Calibration tab")
+            print("scan region not calibrated - open the window once "
+                  "(run-from-source.bat, or the installed app) and use the Calibration tab")
 
     def panic() -> None:
         if bot and bot[0].is_alive():

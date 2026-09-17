@@ -16,11 +16,9 @@ from pynput.mouse import Button, Controller as MouseController
 
 from .capture import WindowTracker
 
+# Aliases for pynput's own key names, which parse_key also accepts directly.
 _NAMED_KEYS = {
-    "shift": Key.shift, "ctrl": Key.ctrl, "control": Key.ctrl, "alt": Key.alt,
-    "tab": Key.tab, "enter": Key.enter, "return": Key.enter, "esc": Key.esc,
-    "escape": Key.esc, "space": Key.space, "backspace": Key.backspace,
-    "e": KeyCode.from_char("e"), "q": KeyCode.from_char("q"), "r": KeyCode.from_char("r"),
+    "control": Key.ctrl, "return": Key.enter, "escape": Key.esc,
 }
 
 
@@ -29,28 +27,32 @@ class FailsafeError(RuntimeError):
 
 
 def parse_key(name: str) -> Key | KeyCode:
-    """Map a config string like 'f6', '1', 'shift' to a pynput key."""
+    """Map a config string like 'f6', '1', 'shift', 'page_up' to a pynput key."""
     name = name.strip().lower()
-    if name.startswith("f") and name[1:].isdigit():
-        return getattr(Key, name)
     if name in _NAMED_KEYS:
         return _NAMED_KEYS[name]
+    if len(name) > 1 and hasattr(Key, name):
+        return Key[name]
     if len(name) == 1:
         return KeyCode.from_char(name)
     raise ValueError(f"cannot interpret key: {name!r}")
 
 
 def to_pynput_hotkey(name: str) -> str:
-    """Convert 'ctrl+shift+f9' to pynput GlobalHotKeys syntax '<ctrl>+<shift>+<f9>'."""
-    parts = [p.strip().lower() for p in name.split("+") if p.strip()]
+    """Convert 'ctrl+shift+f9' to pynput GlobalHotKeys syntax '<ctrl>+<shift>+<f9>'.
+
+    Each part goes through parse_key, so a hotkey and a keystroke given the
+    same name are the same key. Special keys are bracketed; a single
+    character stays bare, because pynput reads '<a>' as an error and '<1>'
+    as virtual key 1 - the left mouse button.
+    """
+    parts = [p.strip() for p in name.split("+") if p.strip()]
+    if not parts:
+        raise ValueError("no key named")
     out = []
     for part in parts:
-        if len(part) == 1 and part.isalnum():
-            out.append(f"<{part}>")
-        elif part.startswith("<") and part.endswith(">"):
-            out.append(part)
-        else:
-            out.append(f"<{part}>")
+        key = parse_key(part)
+        out.append(f"<{key.name}>" if isinstance(key, Key) else key.char)
     return "+".join(out)
 
 

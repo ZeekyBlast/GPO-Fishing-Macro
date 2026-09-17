@@ -3,20 +3,30 @@
 All screen coordinates are stored RELATIVE to the Roblox window's client area,
 so the macro keeps working if the window is moved. They are translated to
 absolute screen coordinates at grab/click time (see capture.py / input.py).
+
+The bot thread reads this object while the shell patches it, without a lock.
+That is safe only because a patch never leaves a value half-written: scalars
+are single assignments, and anything made of several numbers - a point, a
+Region - is built whole and swapped in. A reader holding the old one keeps
+the old one.
 """
 
 from __future__ import annotations
 
 import json
 import threading
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
 from typing import Any, Optional
 
 
-@dataclass
+@dataclass(frozen=True)
 class Region:
-    """Rectangle relative to the Roblox client area: (x1, y1) top-left, (x2, y2) bottom-right."""
+    """Rectangle relative to the Roblox client area: (x1, y1) top-left, (x2, y2) bottom-right.
+
+    Immutable, so it can only ever be read as a whole: four numbers that are
+    half-updated describe a box that exists nowhere on screen.
+    """
 
     x1: int = 0
     y1: int = 0
@@ -281,7 +291,13 @@ def dataclass_to_dict(obj: Any) -> Any:
 
 
 def dict_into_dataclass(obj: Any, data: dict[str, Any]) -> None:
-    """Merge a (possibly partial) dict into a dataclass instance, ignoring unknown keys."""
+    """Merge a (possibly partial) dict into a dataclass instance, ignoring unknown keys.
+
+    Sections are merged in place, field by field. A list or a frozen value
+    (a Region) is never mutated: a new one is built and assigned in a single
+    step, so a reader on another thread sees the old value or the new one,
+    never something in between.
+    """
     if not (is_dataclass(obj) and isinstance(data, dict)):
         return
     by_name = {f.name: f for f in fields(obj)}
@@ -290,10 +306,13 @@ def dict_into_dataclass(obj: Any, data: dict[str, Any]) -> None:
             continue
         current = getattr(obj, key)
         if is_dataclass(current) and isinstance(value, dict):
-            dict_into_dataclass(current, value)
+            if current.__dataclass_params__.frozen:
+                known = {f.name for f in fields(current)}
+                setattr(obj, key, replace(current, **{k: v for k, v in value.items() if k in known}))
+            else:
+                dict_into_dataclass(current, value)
         elif isinstance(current, list) and isinstance(value, list):
-            current.clear()
-            current.extend(value)
+            setattr(obj, key, list(value))
         else:
             setattr(obj, key, value)
 

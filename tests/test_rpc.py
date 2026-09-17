@@ -47,7 +47,56 @@ def send(proc, **request):
     proc.stdin.flush()
 
 
+def check_toggle_resumes_paused() -> None:
+    """The toggle key cycles start / stop, and a paused bot resumes.
+
+    The dashboard says "Press f6 to resume" and the bot says "toggle to
+    resume"; a toggle that stopped a paused bot made every focus-loss pause
+    end the session by the time the user reacted."""
+    import io
+
+    from gpo_macro.config import AppConfig, ConfigStore
+    from gpo_macro.fisher import State
+    from gpo_macro.rpc import Engine
+
+    class FakeBot:
+        def __init__(self, state):
+            self.state = state
+            self.stopped = self.toggled = False
+
+        def is_alive(self):
+            return True
+
+        def stop(self):
+            self.stopped = True
+
+        def request_pause_toggle(self):
+            self.toggled = True
+
+    real_stdout = sys.stdout
+    sys.stdout = io.StringIO()                 # the engine repoints it; keep ours
+    try:
+        engine = Engine(ConfigStore(paths.scratch() / "settings.json", AppConfig()))
+    finally:
+        sys.stdout = real_stdout
+
+    engine.bot = FakeBot(State.PAUSED)
+    assert engine.cmd_toggle({}) == {"toggled": True}, "paused bot was not resumed"
+    assert engine.bot.toggled and not engine.bot.stopped, "toggle stopped a paused bot"
+
+    engine.bot = FakeBot(State.WAIT)
+    assert engine.cmd_toggle({}) == {"stopped": True}
+    assert engine.bot.stopped and not engine.bot.toggled, "toggle did not stop a running bot"
+
+    # Stop is still stop, even when paused: the button that says Stop must mean it.
+    engine.bot = FakeBot(State.PAUSED)
+    assert engine.cmd_stop({}) == {"stopped": True} and engine.bot.stopped
+    print("toggle ok - resumes a paused bot, stops a running one")
+
+
 def main() -> int:
+    check_toggle_resumes_paused()
+
     exe = str(PYTHON) if PYTHON.exists() else sys.executable
     proc = subprocess.Popen(
         [exe, str(ROOT / "main.py"), "--rpc"],

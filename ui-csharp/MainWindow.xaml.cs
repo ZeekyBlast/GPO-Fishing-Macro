@@ -371,11 +371,13 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------- dashboard actions
 
-    private void Start_Click(object sender, RoutedEventArgs e) => _ = ToggleAsync();
+    private void Start_Click(object sender, RoutedEventArgs e) => _ = StartStopAsync();
 
-    private async Task ToggleAsync()
+    /// <summary>Explicit, never the toggle: the toggle resumes a paused bot,
+    /// and this button says Stop while the bot is paused.</summary>
+    private async Task StartStopAsync()
     {
-        var reply = await _engine.CallAsync("toggle");
+        var reply = await _engine.CallAsync(_model.IsRunning ? "stop" : "start");
         if (!Ok(reply, out var result)) { ReportFailure(reply, "start/stop"); return; }
         if (result.TryGetProperty("reason", out var reason))
             _model.AddLog("warn", $"cannot start - {reason.GetString()}");

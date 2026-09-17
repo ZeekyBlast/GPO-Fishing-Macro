@@ -36,11 +36,13 @@ class HotkeyManager:
                     pass
                 self._listener = None
             cfg = self._get_config()
-            mapping = {
-                to_pynput_hotkey(cfg.start_stop): self._safe(self._on_toggle, "toggle"),
-                to_pynput_hotkey(cfg.panic): self._safe(self._on_panic, "panic"),
-            }
             try:
+                # A name pynput cannot read is a logged failure, never an
+                # exception: this runs on every settings save.
+                mapping = {
+                    to_pynput_hotkey(cfg.start_stop): self._safe(self._on_toggle, "toggle"),
+                    to_pynput_hotkey(cfg.panic): self._safe(self._on_panic, "panic"),
+                }
                 self._listener = GlobalHotKeys(mapping)
                 self._listener.daemon = True
                 self._listener.start()

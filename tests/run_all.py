@@ -18,8 +18,9 @@ HERE = Path(__file__).resolve().parent
 
 # test_rpc spawns the engine and test_fisher drives a bot thread, so they are
 # slower than the rest; order is cheapest-first to fail fast.
-ORDER = ["test_theme.py", "test_control.py", "test_vision.py", "test_tasks.py",
-         "test_notify.py", "test_fisher.py", "test_rpc.py"]
+ORDER = ["test_theme.py", "test_config.py", "test_control.py", "test_input.py",
+         "test_vision.py", "test_tasks.py", "test_notify.py", "test_fisher.py",
+         "test_rpc.py"]
 
 
 def main() -> int:

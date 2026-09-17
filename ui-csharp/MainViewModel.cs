@@ -77,6 +77,15 @@ public sealed class MainViewModel : Observable
     private bool _canPause;
     public bool CanPause { get => _canPause; set => Set(ref _canPause, value); }
 
+    /// <summary>The bot thread is alive, paused or not. The Start button reads
+    /// this to send an explicit start or stop: it must never send the toggle,
+    /// which resumes a paused bot, while it says Stop.</summary>
+    private bool _isRunning;
+    public bool IsRunning { get => _isRunning; set => Set(ref _isRunning, value); }
+
+    private string _pauseLabel = "Pause";
+    public string PauseLabel { get => _pauseLabel; set => Set(ref _pauseLabel, value); }
+
     // ------------------------------------------------------------------ faults
 
     /// <summary>The engine's fault key, or null. Every fault names its own fix,
@@ -541,7 +550,7 @@ public sealed class MainViewModel : Observable
             (false, _, _, _) => ("Launch Roblox and open GPO.", Palette.Named("Amber")),
             (_, false, _, _) => ("Calibrate the scan region before starting.", Palette.Named("Amber")),
             (_, _, false, _) => ($"Ready. Start here or press {toggleKey}.", Palette.Named("Muted")),
-            (_, _, _, "paused") => ($"Paused. Press {toggleKey} to resume.", Palette.Named("Amber")),
+            (_, _, _, "paused") => ($"Paused. Resume here or press {toggleKey}.", Palette.Named("Amber")),
             (_, _, _, "wait") => ("Line is out, waiting for a bite.", Palette.Named("Muted")),
             (_, _, _, "reel") => ("Fighting a fish.", Palette.Named("Green")),
             _ => (state, Palette.Named("Muted")),
@@ -565,7 +574,9 @@ public sealed class MainViewModel : Observable
 
         StartLabel = running ? "Stop" : "Start";
         StartBrush = Palette.Named(running ? "Amber" : "Green");
+        IsRunning = running;
         CanPause = running;
+        PauseLabel = state == "paused" ? "Resume" : "Pause";
 
         DashboardDot = Palette.Named(running ? "Green"
             : fault is "window_lost" or "no_gauge" or "no_window" ? "Amber" : "LineStrong");

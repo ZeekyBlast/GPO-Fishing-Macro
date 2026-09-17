@@ -209,7 +209,8 @@
                                     Background="{Binding StartBrush}"
                                     BorderBrush="{Binding StartBrush}"
                                     MinWidth="96" Click="Start_Click" />
-                            <Button Style="{StaticResource QuietButton}" Content="Pause"
+                            <Button Style="{StaticResource QuietButton}"
+                                    Content="{Binding PauseLabel}"
                                     MinWidth="80" Margin="6,0" Click="Pause_Click"
                                     IsEnabled="{Binding CanPause}" />
                             <Button Style="{StaticResource DangerButton}" Content="Panic"

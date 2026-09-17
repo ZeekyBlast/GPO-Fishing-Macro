@@ -252,7 +252,12 @@ class Engine:
         return {"stopped": False}
 
     def cmd_toggle(self, req) -> dict:
+        """The hotkey: start, or stop - and a paused bot resumes, which is what
+        the dashboard's "press f6 to resume" promises. Stop stays a separate
+        command so the button that says Stop always means it."""
         if self.bot and self.bot.is_alive():
+            if self.bot.state == State.PAUSED:
+                return self.cmd_pause(req)
             return self.cmd_stop(req)
         return self.cmd_start(req)
 

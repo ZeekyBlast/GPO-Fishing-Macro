@@ -158,15 +158,7 @@ class FishingBot(threading.Thread):
 
         try:
             while not self._stop_event.is_set():
-                if self._toggle_pause.is_set():
-                    self._toggle_pause.clear()
-                    if self.state != State.PAUSED:
-                        self._paused_from = self.state
-                        self._set_state(State.PAUSED)
-                        self._publish("info", "paused by user")
-                    else:
-                        self._set_state(State.CAST)
-                        self._publish("info", "resumed")
+                self._handle_pause_toggle()
                 if self._stop_event.is_set():
                     break
 
@@ -198,6 +190,25 @@ class FishingBot(threading.Thread):
             self._publish("info", "bot stopped")
 
     # ------------------------------------------------------------- handlers
+
+    def _handle_pause_toggle(self) -> None:
+        """Pause lets go of the mouse. Resume brings Roblox forward first: the
+        focus check runs right after this, and a resume it cannot see in
+        front would be paused again in the same tick."""
+        if not self._toggle_pause.is_set():
+            return
+        self._toggle_pause.clear()
+        if self.state != State.PAUSED:
+            self._release_mouse_safely()
+            self._paused_from = self.state
+            self._set_state(State.PAUSED)
+            self._publish("info", "paused by user")
+        else:
+            info = self._tracker.refresh()
+            if info is not None:
+                focus_window(info.hwnd)
+            self._set_state(State.CAST)
+            self._publish("info", "resumed")
 
     def _check_focus(self) -> None:
         if self.state in (State.FOCUS, State.PAUSED):

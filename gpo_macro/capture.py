@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+import sys
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -18,8 +19,14 @@ import numpy as np
 
 from .config import Region
 
-user32 = ctypes.windll.user32
-kernel32 = ctypes.windll.kernel32
+# Off Windows there is no user32; the window is simply never found. This
+# keeps the module importable so the self-checks run anywhere, until the
+# platform split gives Linux a real backend.
+if sys.platform == "win32":
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+else:
+    user32 = kernel32 = None
 
 
 @dataclass
@@ -37,6 +44,8 @@ class WindowInfo:
 
 def find_roblox_window() -> Optional[WindowInfo]:
     """Return the first visible top-level window whose title contains 'roblox'."""
+    if user32 is None:
+        return None
     result: list[WindowInfo] = []
 
     @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)

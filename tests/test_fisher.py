@@ -141,6 +141,43 @@ def main():
     assert bot.stop_reason == "window_lost" and bot._stop_event.is_set(), bot.stop_reason
     assert not bot._input.mouse_held, "mouse still held after the window vanished"
 
+    # Pause lets go of the mouse; resume brings Roblox forward itself, so the
+    # focus check that runs next finds it in front instead of pausing again.
+    # Without that, the toggle key resumes and re-pauses in the same tick.
+    import gpo_macro.fisher as fisher_module
+
+    class Window:
+        hwnd = 1
+
+        def refresh(self):
+            return self
+
+    focused = []
+    real_focus, real_foreground = fisher_module.focus_window, fisher_module.is_foreground
+    fisher_module.focus_window = lambda hwnd: focused.append(hwnd) or True
+    fisher_module.is_foreground = lambda hwnd: bool(focused)
+    try:
+        bot = FishingBot(AppConfig(), Stats(), EventBus())
+        bot._tracker = Window()
+        bot._input = FakeInput()
+        bot._input.mouse_held = True
+        bot._input.release_mouse = lambda: setattr(bot._input, "mouse_held", False)
+        bot._input.release_keys = lambda names=None: None
+        bot.state = State.REEL
+
+        bot.request_pause_toggle()
+        bot._handle_pause_toggle()
+        assert bot.state is State.PAUSED, bot.state
+        assert not bot._input.mouse_held, "paused with the mouse button still down"
+
+        bot.request_pause_toggle()
+        bot._handle_pause_toggle()
+        bot._check_focus()
+        assert focused == [1], "resume did not bring the Roblox window forward"
+        assert bot.state is State.CAST, f"resumed into {bot.state}, not CAST"
+    finally:
+        fisher_module.focus_window, fisher_module.is_foreground = real_focus, real_foreground
+
     # Before the button goes down: optional re-equip, optional bait row, then
     # the aim - in that order, because the bait row is a click and the cast
     # fires wherever the cursor is when the hold starts.
