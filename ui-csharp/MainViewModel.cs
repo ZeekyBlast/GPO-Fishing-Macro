@@ -309,11 +309,27 @@ public sealed class MainViewModel : Observable
         {
             if (!Set(ref _setupActive, value)) return;
             Raise(nameof(ShellVisible));
+            Raise(nameof(CompactVisible));
             Raise(nameof(CaptureEmptyNote));
             PaintPips();
         }
     }
-    public bool ShellVisible => !_setupActive;
+    public bool ShellVisible => !_setupActive && !_compact;
+
+    /// <summary>The glance strip in place of the whole window: state word,
+    /// caught, per hour, Start and Panic. Always on top while it lasts.</summary>
+    private bool _compact;
+    public bool Compact
+    {
+        get => _compact;
+        set
+        {
+            if (!Set(ref _compact, value)) return;
+            Raise(nameof(ShellVisible));
+            Raise(nameof(CompactVisible));
+        }
+    }
+    public bool CompactVisible => _compact && !_setupActive;
 
     private int _setupStep = 1;
     public int SetupStep

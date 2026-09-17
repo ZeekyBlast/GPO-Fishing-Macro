@@ -57,6 +57,29 @@ def check_shell_palette() -> None:
     print(f"shell palette matches - {len(SHARED)} tokens")
 
 
+SIZE_KEYS = {"meta": "SizeMeta", "label": "SizeLabel", "body": "SizeBody", "head": "SizeHead",
+             "readout": "SizeReadout", "counter": "SizeCounter", "hero": "SizeHero"}
+APP_CSS = paths.ROOT / "gpo_macro" / "web" / "static" / "app.css"
+
+
+def check_shell_sizes() -> None:
+    """The type scale is written three times - theme.py, Theme.xaml, app.css -
+    and a size that drifts in one shell is a page that no longer reads as the
+    same instrument."""
+    xaml = dict(re.findall(r'<sys:Double x:Key="(\w+)">(\d+)</sys:Double>',
+                           THEME_XAML.read_text(encoding="utf-8")))
+    css = dict(re.findall(r"--size-(\w+): (\d+)px;", APP_CSS.read_text(encoding="utf-8")))
+    drift = []
+    for name, key in SIZE_KEYS.items():
+        want = str(theme.SIZES[name])
+        if xaml.get(key) != want:
+            drift.append(f"{name}={want} but Theme.xaml {key}={xaml.get(key) or 'missing'}")
+        if css.get(name) != want:
+            drift.append(f"{name}={want} but app.css --size-{name}={css.get(name) or 'missing'}")
+    assert not drift, "type scale drift:\n  " + "\n  ".join(drift)
+    print(f"type scale matches in all three shells - {len(SIZE_KEYS)} sizes")
+
+
 def check_vocabulary() -> None:
     """Every state and event kind the shell renders must carry a colour, or the
     dashboard falls back to grey and the word loses its pair."""
@@ -71,6 +94,7 @@ def check_vocabulary() -> None:
 def main() -> int:
     check_contrast()
     check_shell_palette()
+    check_shell_sizes()
     check_vocabulary()
     print("\nall theme checks passed")
     return 0
@@ -78,6 +102,7 @@ def main() -> int:
 
 test_contrast = check_contrast
 test_shell_palette = check_shell_palette
+test_shell_sizes = check_shell_sizes
 test_vocabulary = check_vocabulary
 
 

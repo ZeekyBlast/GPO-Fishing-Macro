@@ -332,7 +332,7 @@ public partial class MainWindow : Window
         _toggleKey = HotkeyValue("start_stop");
         var ui = _config.GetProperty("ui");
         _livePreview = ui.GetProperty("live_preview").GetBoolean();
-        Topmost = ui.GetProperty("always_on_top").GetBoolean();
+        Topmost = ui.GetProperty("always_on_top").GetBoolean() || _model.Compact;
         var controller = _config.GetProperty("controller");
         _model.LeadLine = string.Format(CultureInfo.InvariantCulture,
             "Bar lead {0:0.00}s · fish lead {1:0.00}s · tune Bar lead in Settings",
@@ -1159,6 +1159,37 @@ public partial class MainWindow : Window
             new Dictionary<string, object?> { ["store_point"] = new[] { x, y } });
         _model.AddLog("info",
             $"store button anchor set at ({x},{y}) - the prompt is searched for around it");
+    }
+
+    // ------------------------------------------------------------- compact
+
+    private (double Width, double Height, double MinWidth, double MinHeight, bool Topmost, ResizeMode Resize)? _expanded;
+
+    /// <summary>Shrink to the glance strip, always on top. The full window
+    /// comes back exactly as it was left.</summary>
+    private void Compact_Click(object sender, RoutedEventArgs e)
+    {
+        if (_model.Compact) return;
+        _expanded = (Width, Height, MinWidth, MinHeight, Topmost, ResizeMode);
+        _model.Compact = true;
+        MinWidth = MinHeight = 0;
+        Width = 400;
+        Height = 150;
+        ResizeMode = ResizeMode.CanMinimize;
+        Topmost = true;
+    }
+
+    private void Expand_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_model.Compact || _expanded is not { } was) return;
+        _model.Compact = false;
+        MinWidth = was.MinWidth;
+        MinHeight = was.MinHeight;
+        Width = was.Width;
+        Height = was.Height;
+        ResizeMode = was.Resize;
+        Topmost = was.Topmost;
+        _expanded = null;
     }
 
     // ---------------------------------------------------- calibration readouts

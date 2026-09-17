@@ -61,7 +61,9 @@ MONO = "Cascadia Mono"   # ships with Windows Terminal; Consolas is the fallback
 SANS = "Segoe UI"
 
 # Fixed scale, not fluid: metadata / label / body / heading / readout / hero.
-SIZE_META, SIZE_LABEL, SIZE_BODY, SIZE_HEAD, SIZE_READOUT, SIZE_HERO = 10, 11, 12, 14, 15, 30
+# 11/12/13 rather than 10/11/12: the small sizes are read across a room at
+# night, and 10px mono on a 1440p panel was the one thing people squinted at.
+SIZE_META, SIZE_LABEL, SIZE_BODY, SIZE_HEAD, SIZE_READOUT, SIZE_HERO = 11, 12, 13, 14, 15, 30
 SIZE_COUNTER = 22
 SIZES = {"meta": SIZE_META, "label": SIZE_LABEL, "body": SIZE_BODY, "head": SIZE_HEAD,
          "readout": SIZE_READOUT, "counter": SIZE_COUNTER, "hero": SIZE_HERO}

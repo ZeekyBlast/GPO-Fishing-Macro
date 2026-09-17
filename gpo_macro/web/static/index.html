@@ -46,16 +46,21 @@
             <button class="btn accent" id="startBtn">Start</button>
             <button class="btn quiet" id="pauseBtn" disabled>Pause</button>
             <button class="btn quiet danger" id="panicBtn">Panic</button>
+            <button class="btn text" id="compactBtn" title="Just the glance: state, caught, per hour, Start and Panic">compact</button>
           </div>
         </div>
 
+        <!-- Two numbers that matter at a glance, large; four that matter when
+             tuning, small, in one panel. -->
         <div class="tiles">
-          <div class="panel tile"><div class="tile-label">CAUGHT</div><div class="tile-value" id="tileCaught">-</div></div>
-          <div class="panel tile"><div class="tile-label">PER HOUR</div><div class="tile-value" id="tilePerHour">-</div></div>
-          <div class="panel tile"><div class="tile-label">HOOK RATE</div><div class="tile-value" id="tileHookRate">-</div></div>
-          <div class="panel tile"><div class="tile-label">ESCAPED</div><div class="tile-value" id="tileEscaped">-</div></div>
-          <div class="panel tile"><div class="tile-label">TIMEOUTS</div><div class="tile-value" id="tileTimeouts">-</div></div>
-          <div class="panel tile"><div class="tile-label">SESSION</div><div class="tile-value" id="tileSession">-</div></div>
+          <div class="panel tile big"><div class="tile-label">CAUGHT</div><div class="tile-value" id="tileCaught">-</div></div>
+          <div class="panel tile big"><div class="tile-label">PER HOUR</div><div class="tile-value" id="tilePerHour">-</div></div>
+          <div class="panel tiles-small">
+            <div class="tile small"><div class="tile-label">HOOK RATE</div><div class="tile-value" id="tileHookRate">-</div></div>
+            <div class="tile small"><div class="tile-label">ESCAPED</div><div class="tile-value" id="tileEscaped">-</div></div>
+            <div class="tile small"><div class="tile-label">TIMEOUTS</div><div class="tile-value" id="tileTimeouts">-</div></div>
+            <div class="tile small"><div class="tile-label">SESSION</div><div class="tile-value" id="tileSession">-</div></div>
+          </div>
         </div>
 
         <div class="panel reel">

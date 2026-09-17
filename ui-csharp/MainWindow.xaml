@@ -237,12 +237,21 @@
                                     IsEnabled="{Binding CanPause}" />
                             <Button Style="{StaticResource DangerButton}" Content="Panic"
                                     MinWidth="80" Click="Panic_Click" />
+                            <Button Style="{StaticResource TextAction}" Content="compact" Margin="10,0,0,0"
+                                    VerticalAlignment="Center" Click="Compact_Click"
+                                    ToolTip="A small always-on-top strip: state, caught, per hour, Start and Panic" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- Counters. Mono, because every one of them is a number. -->
-                <primitives:UniformGrid Grid.Row="1" Rows="1" Margin="0,6,0,0">
+                <!-- Counters. Two that matter at a glance, large; four that matter
+                     when tuning, small, in one panel. All mono: every one is a number. -->
+                <Grid Grid.Row="1" Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="2*" />
+                    </Grid.ColumnDefinitions>
                     <Border Style="{StaticResource Panel}" Margin="0,0,3,0">
                         <StackPanel Margin="12,8" HorizontalAlignment="Center">
                             <TextBlock Text="CAUGHT" HorizontalAlignment="Center"
@@ -251,11 +260,11 @@
                                        Foreground="{StaticResource Faint}" />
                             <TextBlock Text="{Binding Caught}" HorizontalAlignment="Center"
                                        FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
+                                       FontSize="{StaticResource SizeHero}"
                                        Foreground="{StaticResource Text}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Panel}" Margin="3,0">
+                    <Border Grid.Column="1" Style="{StaticResource Panel}" Margin="3,0">
                         <StackPanel Margin="12,8" HorizontalAlignment="Center">
                             <TextBlock Text="PER HOUR" HorizontalAlignment="Center"
                                        FontFamily="{StaticResource Mono}"
@@ -263,59 +272,47 @@
                                        Foreground="{StaticResource Faint}" />
                             <TextBlock Text="{Binding PerHour}" HorizontalAlignment="Center"
                                        FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
+                                       FontSize="{StaticResource SizeHero}"
                                        Foreground="{StaticResource Text}" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Panel}" Margin="3,0">
-                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
-                            <TextBlock Text="HOOK RATE" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}"
-                                       FontSize="{StaticResource SizeMeta}"
-                                       Foreground="{StaticResource Faint}" />
-                            <TextBlock Text="{Binding HookRate}" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
-                                       Foreground="{StaticResource Text}" />
-                        </StackPanel>
+                    <Border Grid.Column="2" Style="{StaticResource Panel}" Margin="3,0,0,0">
+                        <primitives:UniformGrid Rows="1" Margin="6,8" VerticalAlignment="Center">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="HOOK RATE" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <TextBlock Text="{Binding HookRate}" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeReadout}" Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="ESCAPED" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <TextBlock Text="{Binding Escaped}" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeReadout}" Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="TIMEOUTS" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <TextBlock Text="{Binding Timeouts}" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeReadout}" Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="SESSION" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontSize="{StaticResource SizeMeta}"
+                                           Foreground="{StaticResource Faint}" />
+                                <TextBlock Text="{Binding Session}" HorizontalAlignment="Center"
+                                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                           FontSize="{StaticResource SizeReadout}" Foreground="{StaticResource Text}" />
+                            </StackPanel>
+                        </primitives:UniformGrid>
                     </Border>
-                    <Border Style="{StaticResource Panel}" Margin="3,0">
-                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
-                            <TextBlock Text="ESCAPED" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}"
-                                       FontSize="{StaticResource SizeMeta}"
-                                       Foreground="{StaticResource Faint}" />
-                            <TextBlock Text="{Binding Escaped}" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
-                                       Foreground="{StaticResource Text}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource Panel}" Margin="3,0">
-                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
-                            <TextBlock Text="TIMEOUTS" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}"
-                                       FontSize="{StaticResource SizeMeta}"
-                                       Foreground="{StaticResource Faint}" />
-                            <TextBlock Text="{Binding Timeouts}" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
-                                       Foreground="{StaticResource Text}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource Panel}" Margin="3,0,0,0">
-                        <StackPanel Margin="12,8" HorizontalAlignment="Center">
-                            <TextBlock Text="SESSION" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}"
-                                       FontSize="{StaticResource SizeMeta}"
-                                       Foreground="{StaticResource Faint}" />
-                            <TextBlock Text="{Binding Session}" HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource Mono}" FontWeight="Bold"
-                                       FontSize="{StaticResource SizeCounter}"
-                                       Foreground="{StaticResource Text}" />
-                        </StackPanel>
-                    </Border>
-                </primitives:UniformGrid>
+                </Grid>
 
                 <!-- Reel readout: the tuning surface. Everything needed to set
                      bar_lead is here, so tuning never means reading the log. -->
@@ -895,6 +892,48 @@
                 </StackPanel>
             </Border>
         </DockPanel>
+    </DockPanel>
+    <!-- ================================================ COMPACT ========= -->
+    <!-- The glance panel: state, the two numbers that matter, Start and
+         Panic, in a strip small enough to sit beside the game. -->
+    <DockPanel Background="{StaticResource Bg}"
+               Visibility="{Binding CompactVisible, Converter={StaticResource BoolToVisible}}">
+        <Border Style="{StaticResource Panel}" Margin="8">
+            <Grid Margin="12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center" Margin="0,0,18,0"
+                           FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                           FontSize="{StaticResource SizeHero}"
+                           Text="{Binding StateWord}" Foreground="{Binding StateBrush}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel Margin="0,0,18,0">
+                        <TextBlock Text="CAUGHT" FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeMeta}" Foreground="{StaticResource Faint}" />
+                        <TextBlock Text="{Binding Caught}" FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                   FontSize="{StaticResource SizeCounter}" Foreground="{StaticResource Text}" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="PER HOUR" FontFamily="{StaticResource Mono}"
+                                   FontSize="{StaticResource SizeMeta}" Foreground="{StaticResource Faint}" />
+                        <TextBlock Text="{Binding PerHour}" FontFamily="{StaticResource Mono}" FontWeight="Bold"
+                                   FontSize="{StaticResource SizeCounter}" Foreground="{StaticResource Text}" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                    <Button Style="{StaticResource AccentButton}" Content="{Binding StartLabel}"
+                            Background="{Binding StartBrush}" BorderBrush="{Binding StartBrush}"
+                            MinWidth="88" Click="Start_Click" />
+                    <Button Style="{StaticResource DangerButton}" Content="Panic" MinWidth="88"
+                            Margin="0,4,0,0" Click="Panic_Click" />
+                    <Button Style="{StaticResource TextAction}" Content="expand" Margin="0,2,0,0"
+                            HorizontalAlignment="Center" Click="Expand_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </DockPanel>
     </Grid>
 </Window>

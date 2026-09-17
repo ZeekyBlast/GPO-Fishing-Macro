@@ -22,9 +22,9 @@
   --mono: "Cascadia Mono", "Cascadia Code", Consolas, "DejaVu Sans Mono", ui-monospace, monospace;
   --sans: "Segoe UI", system-ui, -apple-system, "Noto Sans", "DejaVu Sans", sans-serif;
 
-  --size-meta: 10px;
-  --size-label: 11px;
-  --size-body: 12px;
+  --size-meta: 11px;
+  --size-label: 12px;
+  --size-body: 13px;
   --size-head: 14px;
   --size-readout: 15px;
   --size-counter: 22px;
@@ -74,7 +74,7 @@ img { display: block; }
 }
 .nav-item:hover { background: var(--surface); }
 .nav-item.is-current { background: var(--surface); border-left-color: var(--text); color: var(--text); }
-.nav-item:focus-visible { outline: 1px solid var(--green); outline-offset: -1px; }
+.nav-item:focus-visible { outline: 1px solid var(--text2); outline-offset: -1px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); flex: none; }
 
 .readiness { margin-top: auto; padding: 12px 14px 12px; border-top: 1px solid var(--line); }
@@ -101,7 +101,7 @@ img { display: block; }
 }
 .btn:hover { background: var(--line); border-color: var(--line-strong); }
 .btn:disabled { color: var(--faint); background: var(--surface); border-color: var(--line-strong); cursor: default; }
-.btn:focus-visible { outline: 1px solid var(--green); outline-offset: 1px; }
+.btn:focus-visible { outline: 1px solid var(--text2); outline-offset: 1px; }
 .btn.accent { background: var(--green); border-color: var(--green); color: var(--bg); font-weight: 600; min-height: 32px; }
 .btn.accent:hover { filter: brightness(1.08); }
 .btn.accent.is-stop { background: var(--amber); border-color: var(--amber); }
@@ -123,7 +123,7 @@ img { display: block; }
   content: ""; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px;
   border: solid var(--bg); border-width: 0 2px 2px 0; transform: rotate(45deg);
 }
-.check input:focus-visible + .box { outline: 1px solid var(--green); outline-offset: 1px; }
+.check input:focus-visible + .box { outline: 1px solid var(--text2); outline-offset: 1px; }
 
 .field {
   background: var(--surface2); color: var(--text); border: 1px solid var(--line); border-radius: 4px;
@@ -169,11 +169,24 @@ img { display: block; }
 .controls .btn.accent { min-width: 96px; }
 .controls .btn.danger { margin-left: 8px; }
 
-.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--gap); }
+.tiles { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: var(--gap); }
 .tile { padding: 8px 6px; text-align: center; }
 .tile-label { font-family: var(--mono); font-size: var(--size-meta); color: var(--faint); }
 .tile-value { font-family: var(--mono); font-weight: 700; font-size: var(--size-counter); color: var(--text); }
+.tile.big .tile-value { font-size: var(--size-hero); }
+.tiles-small { display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; padding: 4px 6px; }
+.tile.small .tile-value { font-size: var(--size-readout); }
 .tile-value.is-live { color: var(--green); }
+.controls .btn.text { margin-left: 4px; }
+
+/* Compact: the glance strip and nothing else, for a small browser window
+   parked beside the game. */
+body.is-compact #app { grid-template-columns: 1fr; }
+body.is-compact .sidebar, body.is-compact .reel, body.is-compact .log-panel,
+body.is-compact .tiles-small, body.is-compact .status-centre { display: none; }
+body.is-compact .dash { grid-template-rows: auto auto; height: auto; }
+body.is-compact .tiles { grid-template-columns: 1fr 1fr; }
+body.is-compact .content { height: auto; }
 
 .reel { display: flex; gap: 16px; padding: 10px 12px; }
 .reel-readings { flex: 1; min-width: 0; }
@@ -209,7 +222,7 @@ img { display: block; }
   padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left;
 }
 .card-head:hover { background: var(--surface2); }
-.card-head:focus-visible { outline: 1px solid var(--green); outline-offset: -1px; }
+.card-head:focus-visible { outline: 1px solid var(--text2); outline-offset: -1px; }
 .chevron { font-family: var(--mono); font-size: var(--size-meta); color: var(--faint); width: 9px; }
 .card-title { font-family: var(--mono); font-weight: 700; font-size: var(--size-label); }
 .card-title.is-dim { color: var(--muted); }

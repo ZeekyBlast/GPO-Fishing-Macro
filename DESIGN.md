@@ -144,8 +144,11 @@ Every counter, every telemetry reading, every region and colour value, the
 event log, and the small-caps section headings are mono. Only the notes,
 button labels and field labels are sans.
 
-Scale is fixed, not fluid: 10px metadata · 11px labels · 12px UI · 14px
-headings · 15px the live readout · 22px counters · 30px the state word.
+Scale is fixed, not fluid: 11px metadata · 12px labels · 13px UI · 14px
+headings · 15px the live readout · 22px counters · 30px the state word and
+the two large counters. It was 10/11/12; the small sizes are read across a
+room at night, and `test_theme.py` holds `theme.py`, `Theme.xaml` and the
+browser page's `app.css` to the same numbers.
 
 ## Layout
 
@@ -163,8 +166,9 @@ headings · 15px the live readout · 22px counters · 30px the state word.
 
 - **Status strip.** State word at 30px mono, the Roblox window it is driving,
   a sentence saying what happens next, and the three controls. One row.
-- **Counter tile.** Small-caps mono label over a 22px mono number. Six of them,
-  equal width.
+- **Counter tiles.** Two that matter at a glance - caught, per hour - as
+  large tiles at the state word's size; the four that matter when tuning as
+  one panel of small readings beside them.
 - **Reel readout.** The tuning surface: HOLD/drop, on/off the fish, on-target
   percentage as both a number and a meter, then bar and fish positions with
   their velocities and the error between them.

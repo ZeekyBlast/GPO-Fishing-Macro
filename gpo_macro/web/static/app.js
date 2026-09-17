@@ -1093,6 +1093,12 @@ function boot() {
     if (reply.result.reason) addLog('warn', `cannot start - ${reply.result.reason}`);
   };
   $('pauseBtn').onclick = () => cmd('pause');
+  $('compactBtn').onclick = () => {
+    const compact = !document.body.classList.contains('is-compact');
+    document.body.classList.toggle('is-compact', compact);
+    $('compactBtn').textContent = compact ? 'expand' : 'compact';
+    if (compact) showScreen('dashboard');
+  };
   $('panicBtn').onclick = async () => { const reply = await cmd('panic'); ok(reply, 'panic'); };
   $('recovery').onclick = async () => {
     const tag = $('recovery').dataset.tag;
