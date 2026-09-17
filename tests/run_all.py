@@ -8,11 +8,11 @@ one failing test reports and the rest still run.
 
 from __future__ import annotations
 
-import paths
-
 import subprocess
 import sys
 from pathlib import Path
+
+import paths
 
 HERE = Path(__file__).resolve().parent
 

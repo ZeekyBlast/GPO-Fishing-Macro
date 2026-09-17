@@ -8,7 +8,6 @@ Run: python tests/test_input.py
 """
 
 import paths  # noqa: F401  - puts the project root on sys.path
-
 from pynput.keyboard import HotKey, Key, KeyCode
 
 from gpo_macro.config import HotkeysConfig
@@ -54,6 +53,7 @@ def main() -> int:
     # The corner failsafe covers every monitor, not only the primary one:
     # parking the mouse in a corner of the second screen must stop the bot.
     from fakes import FakeWindowSystem
+
     from gpo_macro.capture import WindowTracker
     from gpo_macro.input import FailsafeError, InputController
     from gpo_macro.platform import Rect, WindowInfo
@@ -86,6 +86,11 @@ def main() -> int:
 
     print("all input checks passed")
     return 0
+
+
+def test_input() -> None:
+    """pytest entry: key names, failsafe, approach walk. `python tests/test_input.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

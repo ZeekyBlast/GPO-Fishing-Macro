@@ -17,9 +17,9 @@ sys.path.insert(0, str(ROOT))
 import cv2
 import numpy as np
 
+from gpo_macro import vision
 from gpo_macro.capture import ScreenGrabber, WindowTracker
 from gpo_macro.config import AppConfig, Region
-from gpo_macro import vision
 
 OUT = ROOT / "captures"
 

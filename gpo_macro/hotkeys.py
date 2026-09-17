@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from pynput.keyboard import GlobalHotKeys
 
@@ -21,7 +21,7 @@ class HotkeyManager:
         self._get_config = get_config
         self._on_toggle = on_toggle
         self._on_panic = on_panic
-        self._listener: Optional[GlobalHotKeys] = None
+        self._listener: GlobalHotKeys | None = None
         self._lock = threading.Lock()
 
     def start(self) -> None:

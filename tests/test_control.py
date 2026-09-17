@@ -4,6 +4,7 @@ Run: python test_control.py
 """
 
 import paths  # noqa: F401  - puts the project root on sys.path
+
 from gpo_macro.config import ControllerConfig
 from gpo_macro.controller import should_hold, simulate
 
@@ -33,3 +34,8 @@ for erratic, floor in ((False, 95.0), (True, 72.0)):
     assert mean >= floor, f"{label} tracking regressed to {mean:.1f}%"
 
 print("all control checks passed")
+
+
+def test_control() -> None:
+    """pytest entry. This file is a script: its asserts ran when it was
+    imported, so a failure shows as a collection error for this file."""

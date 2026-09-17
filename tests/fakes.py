@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from gpo_macro.config import Region
@@ -15,9 +13,9 @@ class FakeWindowSystem(WindowSystem):
     pixels behind it. Records what the engine asked of it. Subclassing the
     real interface means a method added there breaks this fake loudly."""
 
-    def __init__(self, window: Optional[WindowInfo] = None,
-                 monitors: Optional[list[Rect]] = None,
-                 frame: Optional[np.ndarray] = None):
+    def __init__(self, window: WindowInfo | None = None,
+                 monitors: list[Rect] | None = None,
+                 frame: np.ndarray | None = None):
         self.window = window
         self.alive = window is not None
         self._monitors = list(monitors or [Rect(0, 0, 1920, 1080)])

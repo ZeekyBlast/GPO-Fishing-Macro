@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator, Optional
 
 import cv2
 import numpy as np
@@ -27,7 +27,7 @@ log = logging.getLogger("gpo.tasks")
 Publish = Callable[..., None]   # publish(kind, message, **data)
 
 
-def _warn_once(publish: Publish, message: str, _seen: set[str] = set()) -> None:
+def _warn_once(publish: Publish, message: str, _seen: set[str] = set()) -> None:  # noqa: B006 - the memo
     if message not in _seen:
         _seen.add(message)
         publish("warn", message)
@@ -35,7 +35,7 @@ def _warn_once(publish: Publish, message: str, _seen: set[str] = set()) -> None:
 
 _TEMPLATE_CACHE: dict[str, np.ndarray] = {}
 
-def _load_template(path: str) -> Optional[np.ndarray]:
+def _load_template(path: str) -> np.ndarray | None:
     resolved = Path(path)
     if not resolved.exists():
         return None
@@ -84,7 +84,7 @@ def fruit_positions(hotbar_bgr: np.ndarray, template_bgr: np.ndarray,
 
 
 def find_green_prompt(frame_bgr: np.ndarray,
-                      min_area: int = 400) -> Optional[tuple[int, int]]:
+                      min_area: int = 400) -> tuple[int, int] | None:
     """Centre of the largest green slab in this frame, or None.
 
     The Store Fruit prompt is found rather than assumed: it is a proximity
@@ -194,6 +194,7 @@ def store_fruits(input_ctl: InputController, grabber: ScreenGrabber,
         return 0, 0
 
     template = _load_template(cfg.template_path)
+    assert template is not None          # in `missing` otherwise
 
     def count_fruit() -> int:
         try:
@@ -248,13 +249,13 @@ def store_fruits(input_ctl: InputController, grabber: ScreenGrabber,
 
 
 def _wait_for_prompt(grabber: ScreenGrabber, tracker: WindowTracker,
-                     cfg: FruitConfig, timeout: float = 0.7) -> Optional[list[int]]:
+                     cfg: FruitConfig, timeout: float = 0.7) -> list[int] | None:
     return wait_for_green(grabber, tracker, cfg.store_point,
                           cfg.store_search_x, cfg.store_search_y, timeout)
 
 
 def wait_for_green(grabber: ScreenGrabber, tracker: WindowTracker, point: list[int],
-                   search_x: int, search_y: int, timeout: float) -> Optional[list[int]]:
+                   search_x: int, search_y: int, timeout: float) -> list[int] | None:
     """Where to click a green button near `point`, or None if none is up.
 
     Searched for rather than assumed: the Store Fruit prompt is a proximity
@@ -624,7 +625,7 @@ def prompt_visible(grabber: ScreenGrabber, tracker: WindowTracker,
 
 
 def tag_position(grabber: ScreenGrabber, tracker: WindowTracker,
-                 template: np.ndarray) -> Optional[tuple[int, int]]:
+                 template: np.ndarray) -> tuple[int, int] | None:
     """Centre of Sen's nametag on screen, window-relative, or None.
 
     The label floats over his head, always faces the camera and draws at one
@@ -681,6 +682,7 @@ def walked_to_sen(input_ctl: InputController, grabber: ScreenGrabber, tracker: W
                             f"{', '.join(missing)} (Calibration tab)")
         yield False
         return
+    assert badge is not None and tag is not None   # in `missing` otherwise
 
     arrived = False
     started = time.monotonic()

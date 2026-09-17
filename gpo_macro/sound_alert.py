@@ -17,7 +17,7 @@ import logging
 import threading
 import time
 from collections import deque
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 
@@ -33,8 +33,8 @@ _BASELINE_BLOCKS = 150          # ~15 s of loudness history
 
 class SoundListener(threading.Thread):
     def __init__(self, cfg: SoundConfig, bus: EventBus,
-                 publish_override: Optional[Callable[[str, str], None]] = None,
-                 system: Optional[platform.WindowSystem] = None):
+                 publish_override: Callable[[str, str], None] | None = None,
+                 system: platform.WindowSystem | None = None):
         super().__init__(name="sound-listener", daemon=True)
         self.cfg = cfg
         self.bus = bus
@@ -42,7 +42,7 @@ class SoundListener(threading.Thread):
         self._publish_override = publish_override
         self._stop = threading.Event()
         self._last_alert = 0.0
-        self._current_level: Optional[float] = None
+        self._current_level: float | None = None
 
     def stop(self) -> None:
         self._stop.set()
@@ -74,7 +74,7 @@ class SoundListener(threading.Thread):
 
         log.info("sound listener active (sensitivity %.1f)", self.cfg.sensitivity)
         history: deque[float] = deque(maxlen=_BASELINE_BLOCKS)
-        spike_start: Optional[float] = None
+        spike_start: float | None = None
         while not self._stop.is_set() and stream.active:
             time.sleep(_BLOCK_SECONDS)
             level = self._current_level

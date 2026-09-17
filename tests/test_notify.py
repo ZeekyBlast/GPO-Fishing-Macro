@@ -3,8 +3,9 @@
 Run: python test_notify.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
 import time
+
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro.config import AppConfig
 from gpo_macro.notify import DiscordNotifier, valid_url
@@ -94,7 +95,9 @@ assert "not a Discord webhook" in n.send_test()
 
 # The session embed carries the numbers the dashboard shows.
 n, transport, _ = make()
-n._stats.record_fish(); n._stats.record_fish(); n._stats.record_fail()
+n._stats.record_fish()
+n._stats.record_fish()
+n._stats.record_fail()
 names = {f["name"]: f["value"] for f in n.session_embed("x", "#4EC98A")["embeds"][0]["fields"]}
 assert names["Caught"] == "2" and names["Escaped"] == "1", names
 assert names["Hook rate"] == "67%", names
@@ -109,3 +112,8 @@ image_url = transport.calls[-1]["embeds"][0]["image"]["url"]
 assert image_url == "attachment://shot.png", image_url
 
 print("all notifier checks passed")
+
+
+def test_notify() -> None:
+    """pytest entry. This file is a script: its asserts ran when it was
+    imported, so a failure shows as a collection error for this file."""

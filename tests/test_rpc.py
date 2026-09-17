@@ -9,13 +9,12 @@ shell depends on. Run it after touching rpc.py or form.py:
 
 from __future__ import annotations
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import json
 import subprocess
 import sys
 import time
-from pathlib import Path
+
+import paths  # noqa: F401  - puts the project root on sys.path
 
 ROOT = paths.ROOT
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
@@ -35,7 +34,7 @@ def read_until(proc, predicate, timeout=25.0):
         try:
             frame = json.loads(line)
         except json.JSONDecodeError:
-            raise AssertionError(f"non-JSON on the protocol stream: {line[:200]!r}")
+            raise AssertionError(f"non-JSON on the protocol stream: {line[:200]!r}") from None
         seen.append(frame.get("t"))
         if predicate(frame):
             return frame
@@ -149,11 +148,9 @@ def check_toggle_resumes_paused() -> None:
     print("toggle ok - resumes a paused bot, stops a running one")
 
 
-def main() -> int:
-    check_toggle_resumes_paused()
-    check_hotkey_validation()
-    check_dispatch_and_hello()
-
+def check_protocol() -> None:
+    """Spawn the engine the way the C# shell does and check the frames it
+    depends on, over the real pipe."""
     exe = str(PYTHON) if PYTHON.exists() else sys.executable
     # A scratch settings file: the round trips below write, and the real
     # settings.json is the user's.
@@ -164,7 +161,8 @@ def main() -> int:
     try:
         hello = read_until(proc, lambda f: f.get("t") == "hello")
         assert hello["schema"], "hello carries no settings schema"
-        assert {"section", "obj", "attr", "label", "kind", "effect", "advanced"}             <= set(hello["schema"][0])
+        assert ({"section", "obj", "attr", "label", "kind", "effect", "advanced"}
+                <= set(hello["schema"][0]))
         assert hello["defaults"]["controller"]["bar_lead"] is not None, "defaults missing"
         assert hello["config"]["hotkeys"]["start_stop"], "config missing in hello"
         kinds = {f["kind"] for f in hello["schema"]}
@@ -178,7 +176,7 @@ def main() -> int:
         # the knobs it reveals appear under it, and one whose "on" is
         # readable: a bool, or a text that is non-empty.
         order = [(f["obj"], f["attr"]) for f in hello["schema"]]
-        by_key = {key: f for key, f in zip(order, hello["schema"])}
+        by_key = {key: f for key, f in zip(order, hello["schema"], strict=True)}
         for field in hello["schema"]:
             assert isinstance(field["gate"], list), field
             for gate in field["gate"]:
@@ -262,8 +260,22 @@ def main() -> int:
     finally:
         if proc.poll() is None:
             proc.kill()
+    print("protocol ok")
+
+
+def main() -> int:
+    check_toggle_resumes_paused()
+    check_hotkey_validation()
+    check_dispatch_and_hello()
+    check_protocol()
     print("\nall rpc checks passed")
     return 0
+
+
+test_toggle_resumes_paused = check_toggle_resumes_paused
+test_hotkey_validation = check_hotkey_validation
+test_dispatch_and_hello = check_dispatch_and_hello
+test_protocol = check_protocol
 
 
 if __name__ == "__main__":

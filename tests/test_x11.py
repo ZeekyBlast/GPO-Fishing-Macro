@@ -8,17 +8,29 @@ itself where there is no display, so the rest of the suite runs anywhere.
 Run: python tests/test_x11.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import os
 import sys
 import time
 
+import paths  # noqa: F401  - puts the project root on sys.path
+
 if sys.platform == "win32" or not os.environ.get("DISPLAY"):
     print("no X display - x11 checks skipped")
+    if "pytest" in sys.modules:
+        import pytest
+
+        pytest.skip("no X display", allow_module_level=True)
     raise SystemExit(0)
 
-import tkinter as tk
+try:
+    import tkinter as tk
+except ImportError:
+    print("no tkinter - x11 checks skipped")
+    if "pytest" in sys.modules:
+        import pytest
+
+        pytest.skip("no tkinter", allow_module_level=True)
+    raise SystemExit(0) from None
 
 import numpy as np
 
@@ -122,6 +134,11 @@ def main() -> int:
 
     print("all x11 checks passed")
     return 0
+
+
+def test_x11() -> None:
+    """pytest entry: the X11 backend against a real window. `python tests/test_x11.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

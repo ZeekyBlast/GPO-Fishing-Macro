@@ -84,6 +84,13 @@ run-from-source.bat
 console, which is useful when the interface itself is what is misbehaving;
 `python main.py --serve` opens the browser window instead (below).
 
+Development tooling lives in `pyproject.toml`: `pip install -e .[dev]` brings
+in ruff, mypy and pytest; `ruff check .`, `mypy` and `pytest` are what CI
+runs (`.github/workflows/ci.yml`, on Ubuntu under Xvfb and on Windows, plus a
+`dotnet build` of the window). `requirements.lock` pins what CI tested
+against; `python tests/run_all.py` still runs every self-check as a plain
+script.
+
 To produce an installer of your own:
 
 ```bat

@@ -19,7 +19,6 @@ import os
 import threading
 import time
 import wave
-from typing import Optional
 
 import numpy as np
 
@@ -73,7 +72,7 @@ class X11WindowSystem(WindowSystem):
 
     # ------------------------------------------------------------- windows
 
-    def find_game_window(self) -> Optional[WindowInfo]:
+    def find_game_window(self) -> WindowInfo | None:
         d = self._display()
         if d is None:
             return None
@@ -231,7 +230,7 @@ class X11WindowSystem(WindowSystem):
         except Exception as exc:
             log.warning("could not play the alert: %s", exc)
 
-    def loopback_stream_kwargs(self) -> Optional[dict]:
+    def loopback_stream_kwargs(self) -> dict | None:
         """PulseAudio and PipeWire expose what the speakers play as a
         "Monitor of ..." input; PortAudio lists it like any other device."""
         try:

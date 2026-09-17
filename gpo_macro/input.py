@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import random
 import time
+from collections.abc import Sequence
 from contextlib import contextmanager
-from typing import Optional, Sequence
 
-from pynput.keyboard import Controller as KbController, Key, KeyCode
-from pynput.mouse import Button, Controller as MouseController
+from pynput.keyboard import Controller as KbController
+from pynput.keyboard import Key, KeyCode
+from pynput.mouse import Button
+from pynput.mouse import Controller as MouseController
 
 from .capture import WindowTracker
 

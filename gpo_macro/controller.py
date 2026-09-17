@@ -18,6 +18,7 @@ seconds. Two properties matter:
 from __future__ import annotations
 
 import argparse
+from typing import Any
 
 from .config import ControllerConfig
 
@@ -58,7 +59,7 @@ def _demo() -> None:  # pragma: no cover - simulation
 
 
 def simulate(cfg: ControllerConfig, hz: float, seconds: float, seed: int,
-             erratic: bool, math=None, random=None) -> tuple[float, float, int]:
+             erratic: bool, math: Any = None, random: Any = None) -> tuple[float, float, int]:
     """Run the gauge sim; returns (on_target_seconds, total_seconds, toggles)."""
     import math as _math
     import random as _random
@@ -94,7 +95,7 @@ def simulate(cfg: ControllerConfig, hz: float, seconds: float, seed: int,
             fish = (lo + hi) / 2 + (hi - lo) * 0.35 * math.sin(t * 0.9)
         fish = max(lo, min(hi, fish))
 
-        if prev_bar is not None:
+        if prev_bar is not None and prev_fish is not None:
             est_bar_vel = 0.7 * est_bar_vel + 0.3 * (y - prev_bar) / dt
             est_fish_vel = 0.7 * est_fish_vel + 0.3 * (fish - prev_fish) / dt
         prev_bar, prev_fish = y, fish

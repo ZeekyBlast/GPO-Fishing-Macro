@@ -7,8 +7,9 @@ import threading
 import time
 import uuid
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Deque, Optional
+from typing import Any
 
 
 @dataclass
@@ -28,10 +29,10 @@ class EventBus:
     """
 
     def __init__(self) -> None:
-        self._queue: "queue.Queue[Optional[Event]]" = queue.Queue()
+        self._queue: queue.Queue[Event | None] = queue.Queue()
         self._subscribers: list[Callable[[Event], None]] = []
         self._lock = threading.Lock()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
 
     def subscribe(self, callback: Callable[[Event], None]) -> None:
         with self._lock:
@@ -73,10 +74,10 @@ class Stats:
     def __init__(self, history_minutes: int = 60, event_history: int = 300):
         self._lock = threading.Lock()
         self._start = time.time()
-        self._catches: Deque[float] = deque()          # timestamps of catches
+        self._catches: deque[float] = deque()          # timestamps of catches
         self._fish_total = 0
         self._history_seconds = history_minutes * 60
-        self._events: Deque[Event] = deque(maxlen=event_history)
+        self._events: deque[Event] = deque(maxlen=event_history)
         self._recast_timeouts = 0
         self._reels_completed = 0
         self._fails = 0

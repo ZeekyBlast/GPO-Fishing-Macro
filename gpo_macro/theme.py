@@ -67,14 +67,6 @@ SIZES = {"meta": SIZE_META, "label": SIZE_LABEL, "body": SIZE_BODY, "head": SIZE
          "readout": SIZE_READOUT, "counter": SIZE_COUNTER, "hero": SIZE_HERO}
 
 
-def mono(size: int = SIZE_BODY, bold: bool = False) -> tuple:
-    return (MONO, size, "bold") if bold else (MONO, size)
-
-
-def sans(size: int = SIZE_BODY, bold: bool = False) -> tuple:
-    return (SANS, size, "bold") if bold else (SANS, size)
-
-
 # ---------------------------------------------------------------------- space
 PAD = 12          # panel padding and the gutter between panels
 GAP = 6           # gap between related controls

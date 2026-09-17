@@ -8,6 +8,8 @@ rather than typed.
 
 from __future__ import annotations
 
+from typing import Any
+
 # (section, config section attribute, field attribute, label, kind)
 FORM: list[tuple[str, str, str, str, str]] = [
     ("Hotkeys", "hotkeys", "start_stop", "Toggle macro", "hotkey"),
@@ -101,7 +103,8 @@ SECTION_NOTES: dict[str, str] = {
     "Webhook": "Posts catches, faults and session summaries to Discord. The URL is a "
                "credential - anyone holding it can post to your channel.",
     "Sound": "Listens to system audio for the rare-spawn cue. Needs a loopback device.",
-    "Interface": "The update check asks GitHub for the latest release and nothing else. It sends no information about you.",
+    "Interface": "The update check asks GitHub for the latest release and nothing else. It sends no "
+                 "information about you.",
 }
 
 
@@ -167,7 +170,7 @@ GATES: dict[tuple[str, str], list[tuple[str, str]]] = {
 }
 
 
-def schema() -> list[dict]:
+def schema() -> list[dict[str, Any]]:
     """The form as plain data, for the C# shell."""
     return [{"section": section, "obj": obj, "attr": attr, "label": label, "kind": kind,
              "effect": EFFECTS.get((obj, attr), ""), "advanced": section in ADVANCED,

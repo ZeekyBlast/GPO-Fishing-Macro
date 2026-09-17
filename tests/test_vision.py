@@ -2,10 +2,9 @@
 
 Run: python tests/test_vision.py
 """
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import cv2
 import numpy as np
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro.config import DetectionConfig
 from gpo_macro.vision import find_bar
@@ -101,6 +100,11 @@ def main():
     assert abs(ghost.seg_center_y - real.seg_center_y) < 1, ghost.seg_center_y
 
     print("all detection checks passed")
+
+
+def test_vision() -> None:
+    """pytest entry: gauge detection. `python tests/test_vision.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

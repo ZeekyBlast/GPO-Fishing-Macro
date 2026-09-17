@@ -12,8 +12,6 @@ one for this platform.
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 from .config import Region
@@ -25,12 +23,12 @@ __all__ = ["WindowInfo", "WindowTracker", "ScreenGrabber"]
 class WindowTracker:
     """Caches the Roblox window handle; re-resolves if it disappears or moves."""
 
-    def __init__(self, system: Optional[WindowSystem] = None) -> None:
+    def __init__(self, system: WindowSystem | None = None) -> None:
         self.system = system or default()
-        self._info: Optional[WindowInfo] = None
+        self._info: WindowInfo | None = None
         self._origin: tuple[int, int] = (0, 0)
 
-    def refresh(self) -> Optional[WindowInfo]:
+    def refresh(self) -> WindowInfo | None:
         if self._info is None or not self.system.window_alive(self._info.hwnd):
             self._info = self.system.find_game_window()
         if self._info is not None:
@@ -38,12 +36,12 @@ class WindowTracker:
         return self._info
 
     @property
-    def info(self) -> Optional[WindowInfo]:
+    def info(self) -> WindowInfo | None:
         """The window as of the last refresh, or None."""
         return self._info
 
     @property
-    def handle(self) -> Optional[int]:
+    def handle(self) -> int | None:
         return None if self._info is None else self._info.hwnd
 
     @property
@@ -62,7 +60,7 @@ class ScreenGrabber:
     """Grabs window-relative regions through the window system. Safe to share
     between threads: whatever is not is kept thread-local inside the backend."""
 
-    def __init__(self, system: Optional[WindowSystem] = None) -> None:
+    def __init__(self, system: WindowSystem | None = None) -> None:
         self.system = system or default()
 
     def grab_region(self, tracker: WindowTracker, region: Region) -> np.ndarray:
@@ -81,7 +79,7 @@ class ScreenGrabber:
         width, height = tracker.client_size()
         return self.grab_region(tracker, Region(0, 0, width, height))
 
-    def grab_full(self, tracker: Optional[WindowTracker] = None) -> np.ndarray:
+    def grab_full(self, tracker: WindowTracker | None = None) -> np.ndarray:
         """The monitor the window is on, or the first one. Diagnostics only:
         the bot itself never needs more than the window."""
         monitors = self.system.monitors()

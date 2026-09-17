@@ -7,7 +7,6 @@ import logging
 import threading
 import time
 from ctypes import wintypes
-from typing import Optional
 
 import numpy as np
 
@@ -32,7 +31,7 @@ class Win32WindowSystem(WindowSystem):
 
     # ------------------------------------------------------------- windows
 
-    def find_game_window(self) -> Optional[WindowInfo]:
+    def find_game_window(self) -> WindowInfo | None:
         found: list[tuple[int, WindowInfo]] = []      # (rank, info): 0 beats 1
 
         @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -145,7 +144,7 @@ class Win32WindowSystem(WindowSystem):
             except Exception:
                 break
 
-    def loopback_stream_kwargs(self) -> Optional[dict]:
+    def loopback_stream_kwargs(self) -> dict | None:
         """WASAPI loopback: open the default *output* device as an input,
         under the WASAPI host API, with the loopback flag."""
         try:

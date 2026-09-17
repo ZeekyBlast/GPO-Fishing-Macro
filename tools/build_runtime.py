@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
-import sys
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -217,7 +216,7 @@ def verify() -> None:
         except OSError:
             # The child is already gone. Its stderr says why, and that is the
             # message worth printing rather than "Invalid argument".
-            raise SystemExit("engine exited immediately:\n" + engine.stderr.read())
+            raise SystemExit("engine exited immediately:\n" + engine.stderr.read()) from None
         for _ in range(200):
             line = engine.stdout.readline()
             if not line:

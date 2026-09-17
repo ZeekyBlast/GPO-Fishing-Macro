@@ -21,20 +21,21 @@ from __future__ import annotations
 
 import json
 import logging
-import ssl
 import queue
+import ssl
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
 
+from . import theme
 from .config import WebhookConfig
 from .stats import Event, EventBus, Stats, format_uptime
-from . import theme
 
 log = logging.getLogger("gpo.notify")
 
@@ -108,17 +109,17 @@ class _Message:
 
 class DiscordNotifier:
     def __init__(self, bus: EventBus, stats: Stats, get_config,
-                 transport: Optional[Callable[..., int]] = None):
+                 transport: Callable[..., int] | None = None):
         """`transport(url, payload) -> http status` is injectable so the tests
         exercise the retry and throttle logic without touching the network."""
         self._bus = bus
         self._stats = stats
         self._get_config = get_config          # -> AppConfig, read live
         self._transport = transport or self._http_post
-        self._queue: "queue.Queue[Optional[_Message]]" = queue.Queue(maxsize=QUEUE_LIMIT)
-        self._thread: Optional[threading.Thread] = None
+        self._queue: queue.Queue[_Message | None] = queue.Queue(maxsize=QUEUE_LIMIT)
+        self._thread: threading.Thread | None = None
         self._periodic_stop = threading.Event()
-        self._periodic_thread: Optional[threading.Thread] = None
+        self._periodic_thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._status = NotifierStatus()
         self._last_sent: dict[str, float] = {}
@@ -275,13 +276,14 @@ class DiscordNotifier:
     # -------------------------------------------------------------- content
 
     def _base(self, kind: str, title: str, description: str,
-              colour: str, fields: Optional[list[dict]] = None) -> dict[str, Any]:
+              colour: str, fields: list[dict] | None = None) -> dict[str, Any]:
         cfg: WebhookConfig = self._get_config().webhook
         embed: dict[str, Any] = {
             "title": title,
             "description": description,
             "color": _color(colour),
-            "footer": {"text": f"GPO Fishing Macro · up {format_uptime(self._stats.snapshot()['uptime_seconds'])}"},
+            "footer": {"text": "GPO Fishing Macro · up "
+                               + format_uptime(self._stats.snapshot()["uptime_seconds"])},
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()),
         }
         if fields:

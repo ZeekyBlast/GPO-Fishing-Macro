@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpo-fishing-macro"
+description = "A clean-room auto-fishing macro for Grand Piece Online (Roblox)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Personal use only; see README" }
+# The one place the version is written is gpo_macro/__init__.py; the
+# installer and the update check read it from there too.
+dynamic = ["version"]
+dependencies = [
+    "mss>=9.0",
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "pynput>=1.7",
+    "python-xlib>=0.33; sys_platform == 'linux'",
+    "requests>=2.31",
+    "sounddevice>=0.4.6",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.5", "mypy>=1.10", "pytest>=8"]
+
+[tool.setuptools]
+packages = ["gpo_macro", "gpo_macro.platform", "gpo_macro.web"]
+
+[tool.setuptools.package-data]
+"gpo_macro.web" = ["static/*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "gpo_macro.__version__" }
+
+# ------------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = ["build", "dist", ".venv", "First-run experience redesign"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "B008",   # function calls in defaults: field(default_factory=...) is the dataclass idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts that put the project root on sys.path before importing from it.
+"main.py" = ["E402"]
+"tools/grab_raw.py" = ["E402"]
+"tests/*" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gpo_macro"]
+
+# ------------------------------------------------------------------- mypy
+
+[tool.mypy]
+# No python_version pin: numpy's stubs use the 3.12 `type` statement, and mypy
+# checks under whichever interpreter runs it.
+files = ["gpo_macro", "main.py"]
+ignore_missing_imports = true      # cv2, mss, pynput, Xlib, sounddevice ship no stubs
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+
+# The pure modules are held to strict; the ones that talk to the OS and to
+# OpenCV are checked but not strict, because the libraries are untyped.
+[[tool.mypy.overrides]]
+module = ["gpo_macro.config", "gpo_macro.controller", "gpo_macro.theme", "gpo_macro.form",
+          "gpo_macro.stats"]
+# `strict` is not a per-module option, so its parts are spelled out.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_any_generics = true
+warn_return_any = true
+strict_equality = true
+
+# Windows-only code, checked on whatever OS runs mypy: ctypes.windll and
+# winsound do not exist off Windows.
+[[tool.mypy.overrides]]
+module = ["gpo_macro.platform.win32"]
+ignore_errors = true
+
+# ----------------------------------------------------------------- pytest
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q --continue-on-collection-errors"

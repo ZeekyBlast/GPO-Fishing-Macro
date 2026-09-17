@@ -4,12 +4,12 @@ Events, commands over POST, a token on both, loopback only.
 Run: python tests/test_web.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import http.client
 import json
 import urllib.error
 import urllib.request
+
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro.config import AppConfig, ConfigStore
 from gpo_macro.web import start_server
@@ -89,6 +89,11 @@ def main() -> int:
 
     print("all web checks passed")
     return 0
+
+
+def test_web() -> None:
+    """pytest entry: the browser shell's transport. `python tests/test_web.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

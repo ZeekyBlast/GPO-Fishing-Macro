@@ -2,15 +2,25 @@
 
 Run: python tests/test_tasks.py
 """
+import numpy as np
 import paths  # noqa: F401  - puts the project root on sys.path
 
-import numpy as np
-
 from gpo_macro.config import BaitConfig, FruitConfig, Region
-from gpo_macro.tasks import (WalkError, box_around, buy_bait, changed_fraction,
-                             classify_banner, craft_bait, find_green_prompt,
-                             fruit_positions, green_fraction, red_fraction, store_fruits,
-                             upkeep_bait, walked_to_sen)
+from gpo_macro.tasks import (
+    WalkError,
+    box_around,
+    buy_bait,
+    changed_fraction,
+    classify_banner,
+    craft_bait,
+    find_green_prompt,
+    fruit_positions,
+    green_fraction,
+    red_fraction,
+    store_fruits,
+    upkeep_bait,
+    walked_to_sen,
+)
 
 # ---------------------------------------------------------------- fixtures
 
@@ -183,8 +193,10 @@ def run(fruit_keys, outcomes, in_range=True, drop_works=True, **cfg_kw):
 
 
 import cv2  # noqa: E402  - only needed to lay down the template fixture
+
 cv2.imwrite(TEMPLATE, ICON)
 from gpo_macro.tasks import reset_template_cache  # noqa: E402
+
 reset_template_cache()
 
 # A fruit on the "0" key - the eighth slot on screen. Reaching it means trying
@@ -353,7 +365,8 @@ class SenScreen:
         pass
 
     def on_drag(self, start, end):
-        if self.asking and start == tuple(self.cfg.craft_slider)                 and end == tuple(self.cfg.craft_slider_end):
+        if (self.asking and start == tuple(self.cfg.craft_slider)
+                and end == tuple(self.cfg.craft_slider_end)):
             self.slider_at_end = True
 
     def on_type(self, text):
@@ -381,7 +394,8 @@ class SenScreen:
             if self.fish > 0 and self.slot < self.need:
                 self.fish -= 1
                 self.slot += 1
-        elif self.asking and cfg.craft_all and abs(point[0] - cfg.craft_all[0]) < 90                 and abs(point[1] - cfg.craft_all[1]) < 40:
+        elif (self.asking and cfg.craft_all and abs(point[0] - cfg.craft_all[0]) < 90
+              and abs(point[1] - cfg.craft_all[1]) < 40):
             made = self.fish + 1 if self.slider_at_end else 1     # the slot's fish plus the rest
             self.crafted += made
             self.fish -= made - 1
@@ -428,7 +442,8 @@ class SenScreen:
         centre_x = (region.x1 + region.x2) // 2
         if self.menu and abs(centre_x - cfg.craft_button[0]) < 5:
             frame[h // 2 - 15:h // 2 + 15, w // 2 - 60:w // 2 + 60] = (60, 190, 70)  # CRAFT
-        if self.menu and self.asking and cfg.craft_all and abs(centre_x - cfg.craft_all[0]) < 5                 and abs((region.y1 + region.y2) // 2 - cfg.craft_all[1]) < 5:
+        if (self.menu and self.asking and cfg.craft_all and abs(centre_x - cfg.craft_all[0]) < 5
+                and abs((region.y1 + region.y2) // 2 - cfg.craft_all[1]) < 5):
             frame[h // 2 - 12:h // 2 + 12, w // 2 - 50:w // 2 + 50] = (60, 190, 70)  # Craft Selected
         if region == box_around(cfg.craft_pick):
             return np.full((48, 48, 3), (30, 30, 30) if self.menu and self.picker else PLANKS,
@@ -706,3 +721,8 @@ upkeep_bait(input_ctl, screen, None, cfg, BANNER, lambda *a, **k: None)
 assert input_ctl.clicks[-1] == tuple(cfg.bait_select), input_ctl.clicks
 
 print("test_tasks: ok")
+
+
+def test_tasks() -> None:
+    """pytest entry. This file is a script: its asserts ran when it was
+    imported, so a failure shows as a collection error for this file."""

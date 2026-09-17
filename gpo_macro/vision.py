@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass, field
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -56,7 +55,7 @@ class BarReading:
 
 @dataclass
 class AutoCalibResult:
-    region: Optional[Region] = None       # window-relative if tracker provided, else screen
+    region: Region | None = None       # window-relative if tracker provided, else screen
     confidence: float = 0.0
     message: str = ""
     notes: list[str] = field(default_factory=list)
@@ -122,7 +121,7 @@ def _column_runs(mask: np.ndarray, min_count: int, min_width: int = 4) -> list[t
 
 
 def find_bar(frame_bgr: np.ndarray, cfg: DetectionConfig,
-             prev_fish_y: Optional[float] = None) -> Optional[BarReading]:
+             prev_fish_y: float | None = None) -> BarReading | None:
     """Locate the black player bar and the fish line inside the blue play area.
 
     Measured from a real capture (185x376 scan region, gauge interior 10 px
@@ -207,7 +206,7 @@ def find_bar(frame_bgr: np.ndarray, cfg: DetectionConfig,
     )
 
 
-def annotate(frame_bgr: np.ndarray, reading: Optional[BarReading]) -> np.ndarray:
+def annotate(frame_bgr: np.ndarray, reading: BarReading | None) -> np.ndarray:
     """Draw detection geometry on a copy of the frame (for previews/debug)."""
     out = frame_bgr.copy()
     if reading is None:
@@ -223,7 +222,7 @@ def annotate(frame_bgr: np.ndarray, reading: Optional[BarReading]) -> np.ndarray
     return out
 
 
-def auto_calibrate(grabber: ScreenGrabber, tracker: Optional[WindowTracker],
+def auto_calibrate(grabber: ScreenGrabber, tracker: WindowTracker | None,
                    cfg: DetectionConfig) -> AutoCalibResult:
     """Scan the Roblox client area for the blue player segment and propose a
     scan region around it, relative to the window - the same numbers
@@ -245,7 +244,7 @@ def auto_calibrate(grabber: ScreenGrabber, tracker: Optional[WindowTracker],
     tol = cfg.color_tolerance
     blue = mask_color(frame, cfg.bar_blue, tol)
 
-    def largest_blob(mask: np.ndarray) -> Optional[tuple[int, int, int, int, int]]:
+    def largest_blob(mask: np.ndarray) -> tuple[int, int, int, int, int] | None:
         count = int(mask.sum())
         if count < cfg.min_bar_pixels:
             return None
@@ -316,6 +315,7 @@ def _preview() -> None:  # pragma: no cover - interactive
         print("Roblox window not found - capturing full screen instead")
     grabber = ScreenGrabber()
 
+    region: Region | None
     if args.region:
         vals = [int(v) for v in args.region.split(",")]
         region = Region(*vals)

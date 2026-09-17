@@ -18,13 +18,11 @@ from enum import Enum
 
 import numpy as np
 
+from . import controller, tasks, vision
 from .capture import ScreenGrabber, WindowTracker
 from .config import AppConfig
 from .input import FailsafeError, InputController
 from .stats import Event, EventBus, Stats
-from . import controller
-from . import tasks
-from . import vision
 
 log = logging.getLogger("gpo.fisher")
 
@@ -80,7 +78,7 @@ class FishingBot(threading.Thread):
         self._bite_streak = 0
         self._last_seen = 0.0
         self._reel_started = 0.0
-        self._paused_from = None
+        self._paused_from: State | None = None
         self._reel_frames = 0
         self._reel_presses = 0
         self._reel_releases = 0
@@ -102,6 +100,12 @@ class FishingBot(threading.Thread):
         self._telemetry: dict | None = None
 
     # ------------------------------------------------------------ lifecycle
+
+    @property
+    def input(self) -> InputController:
+        """The controller, which exists once the thread runs."""
+        assert self._input is not None, "bot not running"
+        return self._input
 
     def stop(self) -> None:
         self._stop_event.set()
@@ -249,7 +253,7 @@ class FishingBot(threading.Thread):
     def _do_prep(self, grabber: ScreenGrabber) -> None:
         f = self.cfg.fishing
         if f.equip_rod:
-            self._input.press_key(f.rod_key, delay_after=0.3)
+            self.input.press_key(f.rod_key, delay_after=0.3)
         self._set_state(State.CAST)
 
     def _do_cast(self, grabber: ScreenGrabber) -> None:
@@ -259,8 +263,8 @@ class FishingBot(threading.Thread):
             return
         self._tracker.system.focus_window(info.hwnd)
         time.sleep(0.15)
-        prepare_cast(self._input, self.cfg, self._publish)
-        self._input.cast(self.cfg.fishing.cast_hold_duration)
+        prepare_cast(self.input, self.cfg, self._publish)
+        self.input.cast(self.cfg.fishing.cast_hold_duration)
         time.sleep(self.cfg.fishing.post_cast_delay)
         self._black_streak = 0
         self._deadline = time.monotonic() + self.cfg.fishing.recast_timeout
@@ -433,11 +437,11 @@ class FishingBot(threading.Thread):
         hold = controller.should_hold(reading.marker_y, self._bar_vel,
                                       reading.seg_center_y, self._fish_vel,
                                       self.cfg.controller)
-        if hold and not self._input.mouse_held:
-            self._input.press_mouse()
+        if hold and not self.input.mouse_held:
+            self.input.press_mouse()
             self._reel_presses += 1
-        elif not hold and self._input.mouse_held:
-            self._input.release_mouse()
+        elif not hold and self.input.mouse_held:
+            self.input.release_mouse()
             self._reel_releases += 1
 
         self._telemetry = {
@@ -476,16 +480,16 @@ class FishingBot(threading.Thread):
         try:
             # Every task in here clicks menus. The cast aims at wherever the
             # cursor is, so the cursor has to end up back over the water.
-            with self._input.preserved_position():
+            with self.input.preserved_position():
                 if self.cfg.fruit.auto_store:
-                    tasks.store_fruits(self._input, grabber, self._tracker,
+                    tasks.store_fruits(self.input, grabber, self._tracker,
                                        self.cfg.fruit, self.cfg.fishing.rod_key,
                                        self._publish)   # (stored, dropped)
                 if ((bait.auto_buy or bait.auto_craft)
                         and self._catches_since_upkeep >= max(1, bait.every_n_catches)):
                     self._catches_since_upkeep = 0
                     self._timeouts_since_upkeep = 0
-                    tasks.upkeep_bait(self._input, grabber, self._tracker, bait,
+                    tasks.upkeep_bait(self.input, grabber, self._tracker, bait,
                                       self.cfg.fruit.banner_region, self._publish)
         except FailsafeError:
             raise

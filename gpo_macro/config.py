@@ -17,7 +17,7 @@ import json
 import threading
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -263,7 +263,8 @@ class AppConfig:
     # ------------------------------------------------------------------ I/O
 
     def to_dict(self) -> dict[str, Any]:
-        return dataclass_to_dict(self)
+        result: dict[str, Any] = dataclass_to_dict(self)
+        return result
 
     def save(self, path: str | Path) -> None:
         path = Path(path)
@@ -273,7 +274,7 @@ class AppConfig:
         tmp.replace(path)
 
     @classmethod
-    def load(cls, path: str | Path) -> "AppConfig":
+    def load(cls, path: str | Path) -> AppConfig:
         path = Path(path)
         cfg = cls()
         if path.exists():
@@ -305,8 +306,9 @@ def dict_into_dataclass(obj: Any, data: dict[str, Any]) -> None:
         if key not in by_name:
             continue
         current = getattr(obj, key)
-        if is_dataclass(current) and isinstance(value, dict):
-            if current.__dataclass_params__.frozen:
+        if is_dataclass(current) and not isinstance(current, type) and isinstance(value, dict):
+            params = getattr(type(current), "__dataclass_params__", None)
+            if params is not None and params.frozen:
                 known = {f.name for f in fields(current)}
                 setattr(obj, key, replace(current, **{k: v for k, v in value.items() if k in known}))
             else:

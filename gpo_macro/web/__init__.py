@@ -27,7 +27,6 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional
 from urllib.parse import parse_qs, urlsplit
 
 from .. import APP_NAME, __version__
@@ -92,6 +91,8 @@ class WebServer(ThreadingHTTPServer):
     @property
     def url(self) -> str:
         host, port = self.server_address[:2]
+        if isinstance(host, bytes):
+            host = host.decode()
         return f"http://{host}:{port}"
 
     def stop(self) -> None:

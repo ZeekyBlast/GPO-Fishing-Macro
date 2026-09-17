@@ -3,8 +3,8 @@
 Run: python test_fisher.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
 import numpy as np
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro.config import AppConfig, Region
 from gpo_macro.fisher import FishingBot, State
@@ -145,6 +145,7 @@ def main():
     # focus check that runs next finds it in front instead of pausing again.
     # Without that, the toggle key resumes and re-pauses in the same tick.
     from fakes import FakeWindowSystem
+
     from gpo_macro.capture import WindowTracker
     from gpo_macro.platform import WindowInfo
 
@@ -200,6 +201,11 @@ def main():
     assert ctl.keys == [] and ctl.clicks == [] and ctl.moves == [] and ctl.mouse.position == WATER
 
     print("all fisher checks passed")
+
+
+def test_fisher() -> None:
+    """pytest entry: maintenance and pause/resume. `python tests/test_fisher.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

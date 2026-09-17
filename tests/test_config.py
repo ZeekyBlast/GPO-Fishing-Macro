@@ -8,10 +8,10 @@ value whole or the new value whole.
 Run: python tests/test_config.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import dataclasses
 import json
+
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro.config import AppConfig, Region, dict_into_dataclass
 
@@ -72,6 +72,11 @@ def main() -> int:
 
     print("all config checks passed")
     return 0
+
+
+def test_config() -> None:
+    """pytest entry: settings merging and persistence. `python tests/test_config.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":

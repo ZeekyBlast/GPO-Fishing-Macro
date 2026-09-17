@@ -26,7 +26,7 @@ import sys
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -72,7 +72,7 @@ class Rect:
         return self.left <= x < self.right and self.top <= y < self.bottom
 
 
-def monitor_containing(monitors: list[Rect], x: int, y: int) -> Optional[Rect]:
+def monitor_containing(monitors: list[Rect], x: int, y: int) -> Rect | None:
     """The monitor a point is on, or None if it is off every screen."""
     for rect in monitors:
         if rect.contains(x, y):
@@ -86,7 +86,7 @@ class WindowSystem(ABC):
     # ------------------------------------------------------------- windows
 
     @abstractmethod
-    def find_game_window(self) -> Optional[WindowInfo]:
+    def find_game_window(self) -> WindowInfo | None:
         """The Roblox window, or None. A title match is required; a window
         class the game is known to use wins over one that merely mentions
         Roblox in its title, so a browser tab does not get clicked."""
@@ -116,7 +116,7 @@ class WindowSystem(ABC):
     # -------------------------------------------------------------- pixels
 
     @abstractmethod
-    def grab(self, handle: int, origin: tuple[int, int], region: "Region") -> np.ndarray:
+    def grab(self, handle: int, origin: tuple[int, int], region: Region) -> np.ndarray:
         """A window-relative region as a BGR array of shape (h, w, 3).
         `origin` is the client origin for backends that grab the screen;
         `handle` is the window for backends that grab the window."""
@@ -150,7 +150,7 @@ class WindowSystem(ABC):
         """A custom WAV if given and playable, otherwise a built-in beep."""
 
     @abstractmethod
-    def loopback_stream_kwargs(self) -> Optional[dict]:
+    def loopback_stream_kwargs(self) -> dict | None:
         """Keyword arguments that make sounddevice.InputStream capture what
         the speakers play, or None when this machine has no such device."""
 
@@ -162,7 +162,7 @@ def _new_mss():
     return factory()
 
 
-_default: Optional[WindowSystem] = None
+_default: WindowSystem | None = None
 _default_lock = threading.Lock()
 
 

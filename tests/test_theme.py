@@ -13,10 +13,9 @@ Run: python tests/test_theme.py
 
 from __future__ import annotations
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import re
-from pathlib import Path
+
+import paths  # noqa: F401  - puts the project root on sys.path
 
 from gpo_macro import theme
 
@@ -75,6 +74,11 @@ def main() -> int:
     check_vocabulary()
     print("\nall theme checks passed")
     return 0
+
+
+test_contrast = check_contrast
+test_shell_palette = check_shell_palette
+test_vocabulary = check_vocabulary
 
 
 if __name__ == "__main__":

@@ -28,20 +28,18 @@ import logging
 import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 import numpy as np
 
-from . import APP_NAME, __version__
-from . import form
-from . import theme
-from . import vision
+from . import APP_NAME, __version__, form, theme, vision
 from .capture import ScreenGrabber, WindowTracker
 from .config import AppConfig, ConfigStore, Region, dict_into_dataclass
 from .fisher import FishingBot, State, prepare_cast
-from .input import InputController
 from .hotkeys import HotkeyManager
+from .input import InputController
 from .notify import DiscordNotifier, valid_url
 from .sound_alert import SoundListener
 from .stats import Event, EventBus, Stats
@@ -79,26 +77,26 @@ def _png_base64(frame: np.ndarray) -> str:
 
 
 class Engine:
-    def __init__(self, store: ConfigStore, sink: Optional[Sink] = None):
+    def __init__(self, store: ConfigStore, sink: Sink | None = None):
         self.store = store
         self.bus = EventBus()
         self.stats = Stats()
         self.notifier = DiscordNotifier(self.bus, self.stats, lambda: self.store.config)
         self.hotkeys = HotkeyManager(lambda: self.store.config.hotkeys,
                                      self._on_toggle, self._on_panic)
-        self.sound: Optional[SoundListener] = None
-        self.bot: Optional[FishingBot] = None
+        self.sound: SoundListener | None = None
+        self.bot: FishingBot | None = None
 
         self._tracker = WindowTracker()
 
         self._window_lost = False   # sticky until recheck or restart
 
         self._no_gauge = False      # sticky until a test passes
-        self._grabber: Optional[ScreenGrabber] = None   # lazily made on the command thread
+        self._grabber: ScreenGrabber | None = None   # lazily made on the command thread
         self._sink: Sink = sink or (lambda message: None)
         self._running = threading.Event()
         self._last_preview = 0.0
-        self._capture: Optional[np.ndarray] = None      # the last client-area capture
+        self._capture: np.ndarray | None = None      # the last client-area capture
 
     @property
     def cfg(self) -> AppConfig:
@@ -205,8 +203,9 @@ class Engine:
             time.sleep(period)
 
     def _tick(self) -> dict[str, Any]:
-        running = bool(self.bot and self.bot.is_alive())
-        state = self.bot.state.value if running else State.IDLE.value
+        bot = self.bot
+        running = bot is not None and bot.is_alive()
+        state = bot.state.value if bot is not None and running else State.IDLE.value
         info = self._tracker.refresh()
         status = self.notifier.status()
         if self.bot and not running and self.bot.stop_reason == "window_lost":
@@ -217,7 +216,7 @@ class Engine:
             "running": running,
             "state": state,
             "stats": self.stats.snapshot(),
-            "telemetry": self.bot.telemetry() if running else None,
+            "telemetry": bot.telemetry() if bot is not None and running else None,
             "window": ({"title": info.title, "left": info.left, "top": info.top,
                         "width": info.right - info.left, "height": info.bottom - info.top}
                        if info else None),
@@ -233,7 +232,7 @@ class Engine:
             payload["preview"] = preview
         return payload
 
-    def _fault(self, info, status) -> Optional[str]:
+    def _fault(self, info, status) -> str | None:
         """One fault at a time, worst first. A fault never clears itself
         silently: window_lost waits for a recheck or a restart, no_gauge for a
         test that passes, and the live ones for the state to actually change."""
@@ -248,7 +247,7 @@ class Engine:
             return "webhook_failed"
         return None
 
-    def _preview_png(self, running: bool) -> Optional[str]:
+    def _preview_png(self, running: bool) -> str | None:
         now = time.monotonic()
         if not (running and self.cfg.ui.live_preview):
             return None
@@ -437,8 +436,8 @@ class Engine:
         out = Path("test_detection.png").resolve()
         cv2.imwrite(str(out), annotated)
         if reading is not None:
-            detail = ("bar_y=%.0f fish_y=%.0f overlap=%s"
-                      % (reading.marker_y, reading.seg_center_y, reading.overlap))
+            detail = (f"bar_y={reading.marker_y:.0f} fish_y={reading.seg_center_y:.0f} "
+                      f"overlap={reading.overlap}")
         else:
             detail = "no gauge"
         # The file is what the C# shell reads; the browser gets the pixels inline.
@@ -496,6 +495,7 @@ class Engine:
 
     def cmd_save_template(self, req) -> dict:
         import cv2
+
         from .tasks import reset_template_cache
         region = Region(int(req["x1"]), int(req["y1"]), int(req["x2"]), int(req["y2"]))
         if not region.valid():

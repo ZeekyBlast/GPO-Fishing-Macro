@@ -4,11 +4,10 @@ against a fake window system, with the game on a second monitor.
 Run: python tests/test_capture.py
 """
 
-import paths  # noqa: F401  - puts the project root on sys.path
-
 import numpy as np
-
+import paths  # noqa: F401  - puts the project root on sys.path
 from fakes import FakeWindowSystem
+
 from gpo_macro import vision
 from gpo_macro.capture import ScreenGrabber, WindowTracker
 from gpo_macro.config import DetectionConfig, Region
@@ -80,6 +79,11 @@ def main() -> int:
 
     print("all capture checks passed")
     return 0
+
+
+def test_capture() -> None:
+    """pytest entry: the window seam. `python tests/test_capture.py` runs the same."""
+    main()
 
 
 if __name__ == "__main__":
