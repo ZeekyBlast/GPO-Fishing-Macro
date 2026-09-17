@@ -51,6 +51,39 @@ def main() -> int:
     assert manager._listener is None
     manager.stop()
 
+    # The corner failsafe covers every monitor, not only the primary one:
+    # parking the mouse in a corner of the second screen must stop the bot.
+    from fakes import FakeWindowSystem
+    from gpo_macro.capture import WindowTracker
+    from gpo_macro.input import FailsafeError, InputController
+    from gpo_macro.platform import Rect, WindowInfo
+
+    monitors = [Rect(0, 0, 2560, 1440), Rect(2560, 0, 1920, 1080)]
+    system = FakeWindowSystem(WindowInfo(1, "Roblox", 2600, 50, 4200, 950), monitors)
+    ctl = InputController(WindowTracker(system), jitter=0.0)
+
+    class Mouse:
+        position = (0, 0)
+
+    ctl.mouse = Mouse()
+    for corner in ((2, 2), (2557, 3), (4477, 1077), (2563, 1077)):
+        ctl.mouse.position = corner
+        try:
+            ctl.failsafe_check()
+        except FailsafeError:
+            pass
+        else:
+            raise AssertionError(f"no failsafe at {corner}")
+    ctl.mouse.position = (2500, 1000)
+    ctl.failsafe_check()                         # the middle of a screen is fine
+
+    # The last stretch of an approach is walked with real relative events,
+    # through the window system, closed-loop on the position read back.
+    ctl.tracker.refresh()
+    ctl.mouse.position = (2700, 300)
+    ctl._approach(100, 250)                      # window-relative -> screen (2700, 300)
+    assert system.moves and all(m == (6, 0) for m in system.moves), system.moves[:3]
+
     print("all input checks passed")
     return 0
 

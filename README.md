@@ -1,6 +1,7 @@
 # GPO Fishing Macro
 
-A clean-room auto-fishing macro for **Grand Piece Online** (Roblox) on Windows.
+A clean-room auto-fishing macro for **Grand Piece Online** (Roblox) on Windows,
+with the engine also running on Linux under X11 (see [Linux](#linux)).
 Screen capture + color detection + a PID controller that plays the reel
 minigame: no game injection, no memory reading, just simulated mouse/keyboard.
 
@@ -85,12 +86,41 @@ console, which is useful when the interface itself is what is misbehaving.
 To produce an installer of your own:
 
 ```bat
-.venv\Scripts\python toolsuild_installer.py
+.venv\Scripts\python tools\build_installer.py
 ```
 
 That bundles the runtime, runs the self-checks against it, publishes the
 window as one self-contained file, and writes `dist\GPO Fishing Macro Setup
 <version>.exe`.
+
+## Linux
+
+The engine - detection, the reel controller, casting, bait upkeep, fruit
+storage, hotkeys, Discord - runs on Linux. The window does not yet, so
+Linux is console mode: `run-from-source.sh` makes the venv and starts
+`main.py`, hotkeys work, and events print to the terminal and to
+`gpo_macro.log`. Calibration needs the window, so bring a `settings.json`
+calibrated on Windows, or set `scan_region` and the click points by hand.
+
+What it needs:
+
+- **An X11 window.** The macro finds the game through X, reads its pixels
+  with `XGetImage` and moves the mouse with XTest. Under a Wayland session
+  that means the game has to run under **XWayland**; a native Wayland
+  surface is invisible to it. Sober and the Wine-based clients can both be
+  made to use X11. The test is `xwininfo -root -tree | grep -i roblox`: if
+  nothing prints, the macro will not find it either.
+- **`DISPLAY` set** in the terminal you start it from.
+- **Focus.** Some compositors refuse to raise a window on request. If the
+  log says "Roblox lost focus - paused" and pressing the toggle key does
+  not bring it back, turn *Pause when Roblox unfocused* off in
+  `settings.json` and keep the game in front yourself.
+- **Sound alert** (optional) needs a PulseAudio or PipeWire "monitor"
+  source visible to PortAudio; without one the feature says so and stays off.
+
+`python tests/run_all.py` runs every self-check here too. `test_x11.py`
+opens a small window of its own and checks the backend against it, so
+expect a flash of orange.
 
 ## Quick start
 
@@ -284,8 +314,7 @@ Same bot, no window: hotkeys work, events print to the terminal and
 ```bat
 .venv\Scripts\python -m gpo_macro.vision                 # live detection preview (q to quit)
 .venv\Scripts\python -m gpo_macro.controller             # PID tuning simulation
-.venv\Scripts\python tests
-un_all.py                    # every self-check
+.venv\Scripts\python tests\run_all.py                    # every self-check
 .venv\Scripts\python tools\grab_raw.py --wait            # dump raw gauge frames
 ```
 
@@ -295,14 +324,17 @@ un_all.py                    # every self-check
 main.py              entry point (console bot / --rpc engine)
 gpo_macro/
   config.py          typed settings, JSON persistence
-  capture.py         mss grabs + Roblox window find/focus (ctypes)
+  platform/          what differs per OS, behind one WindowSystem interface
+    win32.py         user32 + mss + winsound
+    x11.py           python-xlib + XGetImage + XTest (XWayland included)
+  capture.py         window tracking and window-relative grabs
   vision.py          color masks, bar reading, auto-calibration
   controller.py      PID -> hold/release decisions
   input.py           pynput input + failsafe + hotkey helpers
   fisher.py          bot thread: fishing state machine
   tasks.py           bait craft/buy + the walk to Sen, fruit template match + store
   notify.py          Discord webhooks (worker thread)
-  sound_alert.py     WASAPI loopback spike detector (experimental)
+  sound_alert.py     loopback spike detector (experimental)
   stats.py           thread-safe counters + event bus
   hotkeys.py         rebindable global hotkeys
   form.py            the settings form, described once for both UIs
@@ -314,9 +346,11 @@ ui-csharp/           the WPF window: dashboard, settings, calibration
   OverlayWindow.cs   full-desktop region drag and point picking
 tests/               self-checks; `python tests/run_all.py` runs them all
   fixtures/          frozen gauge captures with known readings
+  fakes.py           the fake WindowSystem the checks drive the engine with
 tools/
   grab_raw.py        dump raw gauge frames for tuning
-  build_release.py   package a clean zip into dist/
+  build_runtime.py   bundle the Python the installer ships
+  build_installer.py runtime + window + Inno Setup -> dist/
 settings.example.json   every knob at its default; your real settings.json
                         is git-ignored because it holds your webhook URL
 ```

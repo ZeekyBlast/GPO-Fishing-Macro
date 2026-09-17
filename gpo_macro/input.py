@@ -59,11 +59,13 @@ def to_pynput_hotkey(name: str) -> str:
 class InputController:
     def __init__(self, tracker: WindowTracker, jitter: float = 0.10):
         self.tracker = tracker
+        self.system = tracker.system
         self.jitter = max(0.0, jitter)
         self.mouse = MouseController()
         self.keyboard = KbController()
         self._mouse_held = False
         self._held_keys: set[str] = set()
+        self._monitors = self.system.monitors()      # screens do not move mid-session
 
     # ------------------------------------------------------------- helpers
 
@@ -72,14 +74,15 @@ class InputController:
         time.sleep(max(0.0, seconds + random.uniform(-delta, delta)))
 
     def failsafe_check(self) -> None:
-        import ctypes
+        """Any corner of any monitor: the panic move has to work on whichever
+        screen the hand happens to be over."""
         x, y = self.mouse.position
-        user32 = ctypes.windll.user32
-        screen_w, screen_h = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
         near = 6
-        if (x < near and y < near) or (x > screen_w - near and y < near) \
-                or (x < near and y > screen_h - near) or (x > screen_w - near and y > screen_h - near):
-            raise FailsafeError(f"mouse parked in screen corner ({x}, {y})")
+        for m in self._monitors:
+            for cx, cy in ((m.left, m.top), (m.right - 1, m.top),
+                           (m.left, m.bottom - 1), (m.right - 1, m.bottom - 1)):
+                if abs(x - cx) < near and abs(y - cy) < near:
+                    raise FailsafeError(f"mouse parked in screen corner ({x}, {y})")
 
     # -------------------------------------------------------------- mouse
 
@@ -107,12 +110,11 @@ class InputController:
         input event, so the GUI never sees it arrive: no hover, no pointer
         hand, and the first click is spent waking the button up instead of
         pressing it. So the cursor is parked short of the target and walked
-        the last stretch with relative mouse_event moves, which are real
-        events. Windows scales those by pointer acceleration, so the walk is
-        closed-loop on the position read back rather than a fixed count.
+        the last stretch with relative moves, which the window system sends
+        as real events. Windows scales those by pointer acceleration, so the
+        walk is closed-loop on the position read back rather than a fixed
+        count.
         """
-        import ctypes
-        user32 = ctypes.windll.user32
         sx, sy = self.tracker.to_screen(x, y)
         self.failsafe_check()
         self.mouse.position = (float(sx - 48), float(sy))
@@ -122,7 +124,7 @@ class InputController:
             dx, dy = sx - cx, sy - cy
             if abs(dx) <= 1 and abs(dy) <= 1:
                 break
-            user32.mouse_event(0x0001, int(max(-6, min(6, dx))), int(max(-6, min(6, dy))), 0, 0)
+            self.system.move_mouse_relative(int(max(-6, min(6, dx))), int(max(-6, min(6, dy))))
             time.sleep(0.015)
 
     def drag(self, start: Sequence[int], end: Sequence[int], delay_after: float = 0.1) -> None:

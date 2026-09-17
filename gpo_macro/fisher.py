@@ -18,7 +18,7 @@ from enum import Enum
 
 import numpy as np
 
-from .capture import ScreenGrabber, WindowTracker, focus_window, is_foreground
+from .capture import ScreenGrabber, WindowTracker
 from .config import AppConfig
 from .input import FailsafeError, InputController
 from .stats import Event, EventBus, Stats
@@ -206,7 +206,7 @@ class FishingBot(threading.Thread):
         else:
             info = self._tracker.refresh()
             if info is not None:
-                focus_window(info.hwnd)
+                self._tracker.system.focus_window(info.hwnd)
             self._set_state(State.CAST)
             self._publish("info", "resumed")
 
@@ -226,7 +226,7 @@ class FishingBot(threading.Thread):
             return
         if not self.cfg.fishing.pause_on_focus_lost:
             return
-        if not is_foreground(info.hwnd):
+        if not self._tracker.system.is_foreground(info.hwnd):
             self._release_mouse_safely()
             self._paused_from = self.state
             self._set_state(State.PAUSED)
@@ -242,7 +242,7 @@ class FishingBot(threading.Thread):
             self._publish("error", "scan region not calibrated - open the Calibration tab")
             self._stop_event.set()
             return
-        focus_window(info.hwnd)
+        self._tracker.system.focus_window(info.hwnd)
         time.sleep(0.2)
         self._set_state(State.PREP)
 
@@ -257,7 +257,7 @@ class FishingBot(threading.Thread):
         if info is None:
             self._set_state(State.FOCUS)
             return
-        focus_window(info.hwnd)
+        self._tracker.system.focus_window(info.hwnd)
         time.sleep(0.15)
         prepare_cast(self._input, self.cfg, self._publish)
         self._input.cast(self.cfg.fishing.cast_hold_duration)

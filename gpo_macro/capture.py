@@ -1,170 +1,95 @@
-"""Screen capture and Roblox window management (Windows, stdlib ctypes + mss).
+"""Window tracking and screen capture, on top of the platform's WindowSystem.
 
-Every grab takes a window-relative Region and translates it using the Roblox
-client-area origin, so the user can move/resize the window without breaking
-calibration.
+Every grab takes a window-relative Region and hands it to the window system
+together with the client origin and the window handle. The user can move
+the window without breaking calibration, and the X11 backend can read the
+window itself where the screen has nothing to give.
+
+Which OS this is never appears here: the WindowTracker is given a
+WindowSystem at construction (the tests hand it a fake) and defaults to the
+one for this platform.
 """
 
 from __future__ import annotations
 
-import ctypes
-from ctypes import wintypes
-import sys
-import time
-from dataclasses import dataclass
 from typing import Optional
 
-import mss
 import numpy as np
 
 from .config import Region
+from .platform import WindowInfo, WindowSystem, default, monitor_containing
 
-# Off Windows there is no user32; the window is simply never found. This
-# keeps the module importable so the self-checks run anywhere, until the
-# platform split gives Linux a real backend.
-if sys.platform == "win32":
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
-else:
-    user32 = kernel32 = None
-
-
-@dataclass
-class WindowInfo:
-    hwnd: int
-    title: str
-    left: int
-    top: int
-    right: int
-    bottom: int
-
-    def contains(self, x: int, y: int) -> bool:
-        return self.left <= x < self.right and self.top <= y < self.bottom
-
-
-def find_roblox_window() -> Optional[WindowInfo]:
-    """Return the first visible top-level window whose title contains 'roblox'."""
-    if user32 is None:
-        return None
-    result: list[WindowInfo] = []
-
-    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    def on_window(hwnd, _lparam):
-        if not user32.IsWindowVisible(hwnd):
-            return True
-        length = user32.GetWindowTextLengthW(hwnd)
-        if length <= 0:
-            return True
-        buf = ctypes.create_unicode_buffer(length + 1)
-        user32.GetWindowTextW(hwnd, buf, length + 1)
-        if "roblox" in buf.value.lower():
-            rect = wintypes.RECT()
-            if user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-                result.append(
-                    WindowInfo(hwnd, buf.value, rect.left, rect.top, rect.right, rect.bottom)
-                )
-                return False  # stop enumeration
-        return True
-
-    user32.EnumWindows(on_window, 0)
-    return result[0] if result else None
-
-
-def client_origin(hwnd: int) -> tuple[int, int]:
-    """Absolute screen coordinates of the window's client-area top-left."""
-    rect = wintypes.RECT()
-    if not user32.GetClientRect(hwnd, ctypes.byref(rect)):
-        return (0, 0)
-    point = wintypes.POINT(0, 0)
-    user32.ClientToScreen(hwnd, ctypes.byref(point))
-    return (point.x, point.y)
-
-
-def client_size(hwnd: int) -> tuple[int, int]:
-    rect = wintypes.RECT()
-    if not user32.GetClientRect(hwnd, ctypes.byref(rect)):
-        return (0, 0)
-    return (rect.right - rect.left, rect.bottom - rect.top)
-
-
-def is_foreground(hwnd: int) -> bool:
-    return user32.GetForegroundWindow() == hwnd
-
-
-def focus_window(hwnd: int) -> bool:
-    """Bring the window to the foreground. Returns True on success."""
-    try:
-        if user32.IsIconic(hwnd):
-            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
-            time.sleep(0.15)
-        # Attach thread input so SetForegroundWindow is permitted, then detach.
-        foreground = user32.GetForegroundWindow()
-        fore_tid = user32.GetWindowThreadProcessId(foreground, None)
-        this_tid = kernel32.GetCurrentThreadId()
-        if fore_tid != this_tid:
-            user32.AttachThreadInput(this_tid, fore_tid, True)
-        user32.SetForegroundWindow(hwnd)
-        user32.BringWindowToTop(hwnd)
-        if fore_tid != this_tid:
-            user32.AttachThreadInput(this_tid, fore_tid, False)
-        time.sleep(0.05)
-        return is_foreground(hwnd)
-    except Exception:
-        return False
+__all__ = ["WindowInfo", "WindowTracker", "ScreenGrabber"]
 
 
 class WindowTracker:
     """Caches the Roblox window handle; re-resolves if it disappears or moves."""
 
-    def __init__(self) -> None:
+    def __init__(self, system: Optional[WindowSystem] = None) -> None:
+        self.system = system or default()
         self._info: Optional[WindowInfo] = None
         self._origin: tuple[int, int] = (0, 0)
 
     def refresh(self) -> Optional[WindowInfo]:
-        if self._info is None or not user32.IsWindow(self._info.hwnd):
-            self._info = find_roblox_window()
+        if self._info is None or not self.system.window_alive(self._info.hwnd):
+            self._info = self.system.find_game_window()
         if self._info is not None:
-            self._origin = client_origin(self._info.hwnd)
+            self._origin = self.system.client_origin(self._info.hwnd)
         return self._info
+
+    @property
+    def info(self) -> Optional[WindowInfo]:
+        """The window as of the last refresh, or None."""
+        return self._info
+
+    @property
+    def handle(self) -> Optional[int]:
+        return None if self._info is None else self._info.hwnd
 
     @property
     def origin(self) -> tuple[int, int]:
         return self._origin
 
+    def client_size(self) -> tuple[int, int]:
+        return (0, 0) if self._info is None else self.system.client_size(self._info.hwnd)
+
     def to_screen(self, x: int, y: int) -> tuple[int, int]:
         """Translate a window-relative point to absolute screen coordinates."""
         return (self._origin[0] + x, self._origin[1] + y)
 
-    def region_to_screen(self, region: Region) -> dict[str, int]:
-        ox, oy = self._origin
-        return {"left": ox + region.x1, "top": oy + region.y1,
-                "width": region.width(), "height": region.height()}
-
 
 class ScreenGrabber:
-    """mss wrapper. Create one instance per thread (mss is not thread-safe)."""
+    """Grabs window-relative regions through the window system. Safe to share
+    between threads: whatever is not is kept thread-local inside the backend."""
 
-    def __init__(self) -> None:
-        self._sct = mss.mss()
+    def __init__(self, system: Optional[WindowSystem] = None) -> None:
+        self.system = system or default()
 
     def grab_region(self, tracker: WindowTracker, region: Region) -> np.ndarray:
         """Grab a window-relative Region. Returns BGR ndarray of shape (h, w, 3)."""
-        box = tracker.region_to_screen(region)
-        if box["width"] <= 0 or box["height"] <= 0:
+        if not region.valid():
             raise ValueError(f"invalid grab region: {region}")
-        shot = self._sct.grab(box)
-        frame = np.asarray(shot)[:, :, :3]  # BGRA -> BGR
-        return frame.copy()
+        handle = tracker.handle
+        if handle is None:
+            raise ValueError("no Roblox window")
+        return self.system.grab(handle, tracker.origin, region)
 
     def grab_client(self, tracker: WindowTracker) -> np.ndarray:
         """The whole Roblox client area, so matches come back window-relative."""
-        info = tracker.refresh()
-        if info is None:
+        if tracker.refresh() is None:
             raise ValueError("no Roblox window")
-        width, height = client_size(info.hwnd)
+        width, height = tracker.client_size()
         return self.grab_region(tracker, Region(0, 0, width, height))
 
-    def grab_full(self) -> np.ndarray:
-        monitor = self._sct.monitors[1]  # primary monitor
-        shot = self._sct.grab(monitor)
-        return np.asarray(shot)[:, :, :3].copy()
+    def grab_full(self, tracker: Optional[WindowTracker] = None) -> np.ndarray:
+        """The monitor the window is on, or the first one. Diagnostics only:
+        the bot itself never needs more than the window."""
+        monitors = self.system.monitors()
+        if not monitors:
+            raise ValueError("no monitors found")
+        rect = monitors[0]
+        info = tracker.info if tracker is not None else None
+        if info is not None:
+            rect = monitor_containing(monitors, (info.left + info.right) // 2,
+                                      (info.top + info.bottom) // 2) or rect
+        return self.system.grab_screen(rect)

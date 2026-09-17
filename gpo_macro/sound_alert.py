@@ -1,11 +1,14 @@
 """Optional rare-spawn sound alert.
 
-Listens to the system output via WASAPI loopback (what you hear), maintains a
-rolling loudness baseline, and fires when a sustained spike exceeds the
-sensitivity ratio - e.g. the Megalodon/sea-event roar. Alerts via built-in
-beeps (or a custom WAV) and an event the notifier can relay to Discord.
+Listens to what the speakers play - WASAPI loopback on Windows, the
+PulseAudio/PipeWire monitor source on Linux, both found by the platform's
+WindowSystem - keeps a rolling loudness baseline, and fires when a sustained
+spike exceeds the sensitivity ratio: the Megalodon roar, a sea event.
+Alerts with the built-in beeps (or a custom WAV) and an event the notifier
+can relay to Discord.
 
-Marked experimental: loopback availability depends on the active audio device.
+Marked experimental: whether a loopback device exists depends on the
+machine's audio setup.
 """
 
 from __future__ import annotations
@@ -18,6 +21,7 @@ from typing import Callable, Optional
 
 import numpy as np
 
+from . import platform
 from .config import SoundConfig
 from .stats import Event, EventBus
 
@@ -27,30 +31,18 @@ _BLOCK_SECONDS = 0.1
 _BASELINE_BLOCKS = 150          # ~15 s of loudness history
 
 
-def _play_alert(wav_path: str) -> None:
-    import winsound
-    if wav_path:
-        try:
-            winsound.PlaySound(wav_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-            return
-        except Exception:
-            log.warning("could not play %s - falling back to beeps", wav_path)
-    for freq, duration in ((880, 250), (1100, 250), (880, 250), (1400, 400)):
-        try:
-            winsound.Beep(freq, duration)
-        except Exception:
-            break
-
-
 class SoundListener(threading.Thread):
     def __init__(self, cfg: SoundConfig, bus: EventBus,
-                 publish_override: Optional[Callable[[str, str], None]] = None):
+                 publish_override: Optional[Callable[[str, str], None]] = None,
+                 system: Optional[platform.WindowSystem] = None):
         super().__init__(name="sound-listener", daemon=True)
         self.cfg = cfg
         self.bus = bus
+        self.system = system or platform.default()
         self._publish_override = publish_override
         self._stop = threading.Event()
         self._last_alert = 0.0
+        self._current_level: Optional[float] = None
 
     def stop(self) -> None:
         self._stop.set()
@@ -62,11 +54,17 @@ class SoundListener(threading.Thread):
             self._publish_error(f"sound alert unavailable (sounddevice import failed): {exc}")
             return
 
+        kwargs = self.system.loopback_stream_kwargs()
+        if kwargs is None:
+            self._publish_error("sound alert: no loopback capture device - needs WASAPI on "
+                                "Windows, or a PulseAudio/PipeWire monitor source on Linux - "
+                                "feature disabled for this session")
+            return
         try:
-            extra = sd.WasapiSettings(loopback=True)
-            stream = sd.InputStream(samplerate=44100, channels=2, dtype="float32",
+            channels = kwargs.pop("channels", 2)
+            stream = sd.InputStream(samplerate=44100, channels=channels, dtype="float32",
                                     blocksize=int(44100 * _BLOCK_SECONDS),
-                                    extra_settings=extra, callback=self._on_block)
+                                    callback=self._on_block, **kwargs)
             stream.start()
         except Exception as exc:
             self._publish_error(
@@ -79,7 +77,7 @@ class SoundListener(threading.Thread):
         spike_start: Optional[float] = None
         while not self._stop.is_set() and stream.active:
             time.sleep(_BLOCK_SECONDS)
-            level = getattr(self, "_current_level", None)
+            level = self._current_level
             if level is None:
                 continue
             history.append(level)
@@ -114,7 +112,7 @@ class SoundListener(threading.Thread):
         log.info(message)
         event = Event(kind="sound", message=message)
         self.bus.publish(event)
-        _play_alert(self.cfg.alert_wav)
+        self.system.play_alert(self.cfg.alert_wav)
 
     def _publish_error(self, message: str) -> None:
         log.warning(message)

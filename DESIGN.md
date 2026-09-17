@@ -39,6 +39,41 @@ they are handled carefully: the process is manifested PerMonitorV2 to match
 rather than reading the cursor, because by the time a handler runs the pointer has
 moved, and a quick press-and-drag would anchor pixels away from the press.
 
+## Platforms
+
+Everything the engine asks of the operating system fits in one small
+interface, `WindowSystem` in [`gpo_macro/platform/`](gpo_macro/platform/):
+find the game's window, say whether it is still there and in front, bring it
+forward, report where its client area sits and how big it is, grab a
+window-relative box of its pixels, nudge the pointer with a real input
+event, make a noise, and open a loopback audio stream. There is one
+implementation per OS - `win32.py` (user32, mss, winsound) and `x11.py`
+(python-xlib, `XGetImage`, XTest) - and nothing else in the engine imports
+either. The rest of the code holds a `WindowTracker`, which takes a
+`WindowSystem` at construction and defaults to the one for this OS; the
+self-checks hand it a fake that subclasses the same interface, so a method
+added to the interface breaks the fake loudly rather than silently.
+
+Two decisions follow from where the seam sits:
+
+- **Grabs are window-relative all the way down.** A stored region is handed
+  to the backend with the window's handle and its client origin; the Windows
+  backend adds the origin and reads the screen, the X11 backend reads the
+  window itself. That is not a preference: under XWayland the root window
+  has no contents and a screen grab comes back black, while every X window
+  still has its own pixels. Auto-calibration reads the client area for the
+  same reason, and stores the same numbers whichever monitor the game is on.
+- **The X11 backend needs an X11 window.** Under a Wayland session that means
+  the game runs under XWayland; a native Wayland surface cannot be
+  enumerated, read or sent input, and the backend does not pretend
+  otherwise. When it cannot say whether the game is in front, it says yes:
+  a wrong "no" would pause the bot for the night, and the panic key and the
+  corner failsafe still stand.
+
+The failsafe checks the corners of every monitor, not the primary one, and
+`test_x11.py` runs the real backend against a window it opens itself, with
+Tk's own coordinates as the oracle.
+
 ## Theme
 
 Dark only, and deliberately. This sits beside a fullscreen Roblox window at
@@ -151,9 +186,10 @@ incidental:
 
 ## Fallbacks
 
-`start.bat` launches the window. `python main.py` runs the same bot with no
-window and no shell, reading the same `settings.json`, useful when the
-interface itself is the thing that is broken. Calibration needs the window.
+The installed app, or `run-from-source.bat`, launches the window. `python
+main.py` (`run-from-source.sh` on Linux) runs the same bot with no window and
+no shell, reading the same `settings.json`, useful when the interface itself
+is the thing that is broken. Calibration needs the window.
 
 ## Discord
 

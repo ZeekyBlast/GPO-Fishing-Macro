@@ -1,4 +1,5 @@
-# Windows-only project; keep line endings stable across checkouts.
+# Keep line endings stable across Windows and Linux checkouts.
 * text=auto eol=lf
 *.bat text eol=crlf
+*.sh text eol=lf
 *.png binary

@@ -225,14 +225,18 @@ def annotate(frame_bgr: np.ndarray, reading: Optional[BarReading]) -> np.ndarray
 
 def auto_calibrate(grabber: ScreenGrabber, tracker: Optional[WindowTracker],
                    cfg: DetectionConfig) -> AutoCalibResult:
-    """Scan the whole screen for the blue player segment (and green fish segment)
-    and propose a scan region covering both pills.
+    """Scan the Roblox client area for the blue player segment and propose a
+    scan region around it, relative to the window - the same numbers
+    whichever monitor the window is on.
 
     Should be run while the fishing minigame is visible on screen.
     """
     result = AutoCalibResult()
+    if tracker is None or tracker.refresh() is None:
+        result.message = "no Roblox window - launch GPO, then retry"
+        return result
     try:
-        frame = grabber.grab_full()
+        frame = grabber.grab_client(tracker)
     except Exception as exc:  # pragma: no cover - depends on display
         result.message = f"screen capture failed: {exc}"
         return result
@@ -272,13 +276,7 @@ def auto_calibrate(grabber: ScreenGrabber, tracker: Optional[WindowTracker],
     x1, y1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
     x2, y2 = min(frame_w, x2 + pad_x), min(frame_h, y2 + pad_y)
 
-    if tracker is not None and tracker.refresh() is not None:
-        ox, oy = tracker.origin
-        x1, y1, x2, y2 = x1 - ox, y1 - oy, x2 - ox, y2 - oy
-        result.notes.append("region stored relative to the Roblox window")
-    else:
-        result.notes.append("Roblox window not found - region stored as absolute screen coords")
-
+    result.notes.append("region stored relative to the Roblox window")
     result.region = Region(int(x1), int(y1), int(x2), int(y2))
     confidence = 0.6
     confidence += 0.2 if 1.0 <= bh / max(1, bw) <= 30 else 0.0
@@ -331,7 +329,7 @@ def _preview() -> None:  # pragma: no cover - interactive
             if region is not None and region.valid():
                 frame = grabber.grab_region(tracker, region)
             else:
-                frame = grabber.grab_full()
+                frame = grabber.grab_full(tracker)
         except Exception as exc:
             print(f"grab failed: {exc}")
             break

@@ -18,7 +18,7 @@ import cv2
 import numpy as np
 
 from gpo_macro.capture import ScreenGrabber, WindowTracker
-from gpo_macro.config import AppConfig
+from gpo_macro.config import AppConfig, Region
 from gpo_macro import vision
 
 OUT = ROOT / "captures"
@@ -59,7 +59,8 @@ def main() -> None:
         raise SystemExit("scan region not calibrated")
     if args.pad:
         r = cfg.scan_region
-        r.x1 -= args.pad; r.y1 -= args.pad; r.x2 += args.pad; r.y2 += args.pad
+        cfg.scan_region = r = Region(r.x1 - args.pad, r.y1 - args.pad,
+                                     r.x2 + args.pad, r.y2 + args.pad)
         print(f"padded region: ({r.x1},{r.y1})-({r.x2},{r.y2})  {r.width()}x{r.height()}")
     grabber = ScreenGrabber()
     OUT.mkdir(exist_ok=True)

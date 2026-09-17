@@ -144,39 +144,29 @@ def main():
     # Pause lets go of the mouse; resume brings Roblox forward itself, so the
     # focus check that runs next finds it in front instead of pausing again.
     # Without that, the toggle key resumes and re-pauses in the same tick.
-    import gpo_macro.fisher as fisher_module
+    from fakes import FakeWindowSystem
+    from gpo_macro.capture import WindowTracker
+    from gpo_macro.platform import WindowInfo
 
-    class Window:
-        hwnd = 1
+    system = FakeWindowSystem(WindowInfo(1, "Roblox", 0, 0, 800, 600))
+    bot = FishingBot(AppConfig(), Stats(), EventBus())
+    bot._tracker = WindowTracker(system)
+    bot._input = FakeInput()
+    bot._input.mouse_held = True
+    bot._input.release_mouse = lambda: setattr(bot._input, "mouse_held", False)
+    bot._input.release_keys = lambda names=None: None
+    bot.state = State.REEL
 
-        def refresh(self):
-            return self
+    bot.request_pause_toggle()
+    bot._handle_pause_toggle()
+    assert bot.state is State.PAUSED, bot.state
+    assert not bot._input.mouse_held, "paused with the mouse button still down"
 
-    focused = []
-    real_focus, real_foreground = fisher_module.focus_window, fisher_module.is_foreground
-    fisher_module.focus_window = lambda hwnd: focused.append(hwnd) or True
-    fisher_module.is_foreground = lambda hwnd: bool(focused)
-    try:
-        bot = FishingBot(AppConfig(), Stats(), EventBus())
-        bot._tracker = Window()
-        bot._input = FakeInput()
-        bot._input.mouse_held = True
-        bot._input.release_mouse = lambda: setattr(bot._input, "mouse_held", False)
-        bot._input.release_keys = lambda names=None: None
-        bot.state = State.REEL
-
-        bot.request_pause_toggle()
-        bot._handle_pause_toggle()
-        assert bot.state is State.PAUSED, bot.state
-        assert not bot._input.mouse_held, "paused with the mouse button still down"
-
-        bot.request_pause_toggle()
-        bot._handle_pause_toggle()
-        bot._check_focus()
-        assert focused == [1], "resume did not bring the Roblox window forward"
-        assert bot.state is State.CAST, f"resumed into {bot.state}, not CAST"
-    finally:
-        fisher_module.focus_window, fisher_module.is_foreground = real_focus, real_foreground
+    bot.request_pause_toggle()
+    bot._handle_pause_toggle()
+    bot._check_focus()
+    assert system.focus_calls == [1], "resume did not bring the Roblox window forward"
+    assert bot.state is State.CAST, f"resumed into {bot.state}, not CAST"
 
     # Before the button goes down: optional re-equip, optional bait row, then
     # the aim - in that order, because the bait row is a click and the cast

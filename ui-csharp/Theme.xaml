@@ -3,7 +3,7 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib"
                     xmlns:local="clr-namespace:GpoMacro">
 
-    <!-- Tokens. Same values as gpo_macro/ui/theme.py; see DESIGN.md for the
+    <!-- Tokens. Same values as gpo_macro/theme.py; see DESIGN.md for the
          reasoning. Nothing below this block hard-codes a colour or a gap.
          Green is THE accent and means one thing: the hook is on the fish. -->
 

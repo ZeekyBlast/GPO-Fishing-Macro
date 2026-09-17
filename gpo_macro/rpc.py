@@ -29,7 +29,7 @@ from . import APP_NAME, __version__
 from . import form
 from . import theme
 from . import vision
-from .capture import ScreenGrabber, WindowTracker, client_size, focus_window
+from .capture import ScreenGrabber, WindowTracker
 from .config import AppConfig, ConfigStore, Region, dict_into_dataclass
 from .fisher import FishingBot, State, prepare_cast
 from .input import InputController
@@ -331,7 +331,7 @@ class Engine:
         if info is None:
             return {"found": False, "origin_x": 0, "origin_y": 0}
         ox, oy = self._tracker.origin
-        cw, ch = client_size(info.hwnd)
+        cw, ch = self._tracker.client_size()
         return {"found": True, "title": info.title, "origin_x": ox, "origin_y": oy,
                 "client_width": cw, "client_height": ch,
                 "left": info.left, "top": info.top,
@@ -367,7 +367,7 @@ class Engine:
             raise ValueError("no Roblox window")
         f = self.cfg.fishing
         input_ctl = InputController(self._tracker, jitter=0.0)
-        focus_window(info.hwnd)
+        self._tracker.system.focus_window(info.hwnd)
         time.sleep(0.3)
         if f.equip_rod and not f.equip_every_cast:
             input_ctl.press_key(f.rod_key, delay_after=0.3)
