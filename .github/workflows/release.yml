@@ -38,11 +38,22 @@ jobs:
           .venv\Scripts\python -m pip install --quiet -r requirements.txt
       - name: Build the installer
         run: .venv\Scripts\python tools\build_installer.py
-      - name: Attach to the release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/GPO Fishing Macro Setup *.exe
+      # Releases are immutable once published, so the release is created with
+      # the installer already attached. An existing release for the tag (one
+      # made by hand, before the build) is replaced; its notes live in
+      # RELEASE_NOTES.md, so nothing is lost.
+      - name: Publish the release with the installer
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = "${{ github.event.inputs.tag }}"
           if (-not $tag) { $tag = "${{ github.ref_name }}" }
           $exe = Get-ChildItem "dist\GPO Fishing Macro Setup *.exe" | Select-Object -First 1
-          gh release upload $tag $exe.FullName --clobber
+          $version = $tag.TrimStart("v")
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { gh release delete $tag --yes }
+          gh release create $tag $exe.FullName --title "GPO Fishing Macro $version" --notes-file RELEASE_NOTES.md
