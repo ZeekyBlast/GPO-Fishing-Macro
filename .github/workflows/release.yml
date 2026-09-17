@@ -1,0 +1,48 @@
+name: Release installer
+
+# Builds the Windows installer on GitHub's Windows runner and attaches it to
+# the release for the tag, so nobody needs a Windows machine to ship one.
+# Runs when a v* tag is pushed, or by hand for an existing tag.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach to (e.g. v1.3.1)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"      # the bundled runtime is 3.11; site-packages must match
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Project venv
+        run: |
+          python -m venv .venv
+          .venv\Scripts\python -m pip install --quiet --upgrade pip
+          .venv\Scripts\python -m pip install --quiet -r requirements.txt
+      - name: Build the installer
+        run: .venv\Scripts\python tools\build_installer.py
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.inputs.tag }}"
+          if (-not $tag) { $tag = "${{ github.ref_name }}" }
+          $exe = Get-ChildItem "dist\GPO Fishing Macro Setup *.exe" | Select-Object -First 1
+          gh release upload $tag $exe.FullName --clobber
