@@ -54,6 +54,9 @@ jobs:
           if (-not $tag) { $tag = "${{ github.ref_name }}" }
           $exe = Get-ChildItem "dist\GPO Fishing Macro Setup *.exe" | Select-Object -First 1
           $version = $tag.TrimStart("v")
+          # The checkout is the tag, which may predate the notes: take main's.
+          git fetch --depth=1 origin main
+          git show origin/main:RELEASE_NOTES.md | Set-Content -Encoding utf8 notes.md
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete $tag --yes }
-          gh release create $tag $exe.FullName --title "GPO Fishing Macro $version" --notes-file RELEASE_NOTES.md
+          gh release create $tag $exe.FullName --title "GPO Fishing Macro $version" --notes-file notes.md
