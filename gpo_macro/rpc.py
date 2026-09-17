@@ -73,7 +73,7 @@ def _png_base64(frame: np.ndarray) -> str:
     ok, buf = cv2.imencode(".png", frame)
     if not ok:
         raise ValueError("could not encode the frame")
-    return base64.b64encode(buf).decode("ascii")
+    return base64.b64encode(buf.tobytes()).decode("ascii")
 
 
 class Engine:
@@ -262,7 +262,7 @@ class Engine:
         scale = max(0.12, min(self.cfg.ui.preview_scale, 520.0 / max(1, w)))
         small = cv2.resize(frame, (max(1, int(w * scale)), max(1, int(h * scale))))
         ok, buf = cv2.imencode(".png", small)
-        return base64.b64encode(buf).decode("ascii") if ok else None
+        return base64.b64encode(buf.tobytes()).decode("ascii") if ok else None
 
     # --------------------------------------------------------------- commands
 

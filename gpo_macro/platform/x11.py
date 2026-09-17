@@ -82,8 +82,11 @@ class X11WindowSystem(WindowSystem):
             listing = root.get_full_property(self._atom("_NET_CLIENT_LIST"), Xatom.WINDOW)
         except error.XError:
             return None
+        # The client list is the window manager's. With no manager (a bare X
+        # server, Xvfb) the root's mapped children are the top-level windows.
+        handles = list(listing.value) if listing is not None else self._top_level_handles(root)
         found: list[tuple[int, int, str]] = []          # (rank, handle, title)
-        for handle in (listing.value if listing is not None else []):
+        for handle in handles:
             win = self._window(handle)
             try:
                 title = self._name(win)
@@ -104,6 +107,21 @@ class X11WindowSystem(WindowSystem):
         except error.XError:
             return None
         return WindowInfo(handle, title, x, y, x + w, y + h)
+
+    @staticmethod
+    def _top_level_handles(root) -> list[int]:
+        from Xlib import X, error
+        handles: list[int] = []
+        try:
+            for child in root.query_tree().children:
+                try:
+                    if child.get_attributes().map_state == X.IsViewable:
+                        handles.append(int(child.id))
+                except error.XError:
+                    continue
+        except error.XError:
+            pass
+        return handles
 
     def window_alive(self, handle: int) -> bool:
         if self._display() is None:
