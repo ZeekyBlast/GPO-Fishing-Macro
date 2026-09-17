@@ -57,6 +57,7 @@ def main() -> int:
 
     app = tk.Tk()
     app.title("Roblox (self-check window)")
+    app.geometry("400x500")                              # no window manager (Xvfb) leaves Tk tiny
     canvas = tk.Canvas(app, bg="#ff8000", highlightthickness=0)
     canvas.pack(fill="both", expand=True)
     for _ in range(6):                                   # let the window manager place it

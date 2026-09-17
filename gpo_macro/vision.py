@@ -160,6 +160,23 @@ def find_bar(frame_bgr: np.ndarray, cfg: DetectionConfig,
     if pill_bottom - pill_top < 20:
         return None
 
+    # A gauge is a narrow pill with dark borders; open water at dusk is a
+    # blue band as wide as the region, and it once carried a dark edge and a
+    # bright streak that passed for a bar and a fish. The bot pressed the
+    # mouse on an empty cast and pulled the line back, every three seconds,
+    # for as long as the light lasted.
+    width = frame_bgr.shape[1]
+    if x2 - x1 + 1 > max(30, width // 2):
+        return None
+    pill_rows = slice(pill_top, pill_bottom + 1)
+    borders = []
+    if x1 >= 3:
+        borders.append(float(dark[pill_rows, x1 - 3:x1].mean()))
+    if x2 + 3 < width:
+        borders.append(float(dark[pill_rows, x2 + 1:x2 + 4].mean()))
+    if not borders or min(borders) < 0.4:
+        return None
+
     # Player bar = longest black run inside the pill. max_gap bridges the fish
     # line where it sits on the bar; the min length drops the pill's end caps.
     dark_rows = np.where(is_dark[pill_top:pill_bottom + 1])[0] + pill_top

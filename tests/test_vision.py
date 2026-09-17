@@ -64,6 +64,22 @@ def main():
     assert idle is not None, "missing tests/fixtures/no_gauge.png"
     assert find_bar(idle, cfg) is None, "scenery read as a gauge"""
 
+    # Open water must never read as a gauge. At dusk the sea passes through a
+    # blue within tolerance of the gauge's, and a dark edge (dock, boat) plus a
+    # bright streak (a wave crest, a line of UI text) gave the bar detector a
+    # "bar" and a "fish". The bot then pressed the mouse on an empty cast and
+    # pulled the line back every three seconds. A gauge is a narrow pill with
+    # dark borders; the sea is a blue band as wide as the region.
+    water = np.full((376, 185, 3), (240, 165, 95), np.uint8)
+    water[300:322, :] = (30, 28, 26)                        # a dark horizontal edge
+    water[150:153, :] = (250, 250, 250)                     # a bright streak across
+    assert find_bar(water, cfg) is None, "dusk water with an edge and a streak read as a gauge"
+    wide = gauge(224, 307, 193)
+    wide[26:365, 20:170] = BLUE                              # the interior stretched to the width
+    wide[224:308, 20:170] = BLACK
+    wide[193:196, 20:170] = WHITE
+    assert find_bar(wide, cfg) is None, "a blue band with no dark borders read as a gauge"
+
     # Real captures. test_detection.png is rewritten by the app's Test
     # Detection button, so the fixtures are frozen copies with known values.
     for name, bar_y, fish_y, over in (("gauge_overlap", 302.0, 298.0, True),

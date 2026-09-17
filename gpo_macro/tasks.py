@@ -741,18 +741,29 @@ def _walk_home(input_ctl: InputController, grabber: ScreenGrabber, tracker: Wind
     speed = max(1.0, _dist(start, pos) / max(0.05, time.monotonic() - began))   # px/s, measured
 
     # Trim: momentum and frame timing leave it a little past or short. Tap
-    # toward home, sized by the speed just measured, and look again.
-    for _ in range(3):
+    # toward home and look again. The first tap is sized by the leg's speed,
+    # every later one by the speed the previous tap actually gave - a tap
+    # barely gets moving, so it is much slower than the leg, and sizing by
+    # the leg alone closed a fixed fraction of the gap each time and gave up
+    # short whenever the overshoot was large.
+    tap_speed = speed
+    last_error = last_hold = None
+    for _ in range(6):
         time.sleep(0.3)                                    # let momentum die
         seen = tag_position(grabber, tracker, tag)
         if seen is None:
             raise WalkError("lost sight of Sen's nametag while trimming the stop")
         error = _dist(seen, home)
+        if last_error is not None and last_hold:
+            moved = last_error - error
+            if moved > 1.0:
+                tap_speed = max(1.0, moved / last_hold)
         if error <= tol:
             break
         overshot = _progress(start, home, seen) > 1.0
-        input_ctl.hold_key(cfg.walk_keys if overshot else cfg.return_keys,
-                           min(0.8, error / speed), delay_after=0.0)
+        hold = min(0.8, error / tap_speed)
+        input_ctl.hold_key(cfg.walk_keys if overshot else cfg.return_keys, hold, delay_after=0.0)
+        last_error, last_hold = error, hold
     else:
         publish("warn", f"stopped {error:.0f}px from the fishing spot after trimming")
 

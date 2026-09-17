@@ -304,10 +304,11 @@ class FishingBot(threading.Thread):
         self._black_streak = 0
 
         if vision.find_bar(frame, det) is not None:
-            # Require two consecutive hits so a one-frame flicker doesn't
-            # start a reel session against a half-appeared gauge.
+            # Require three consecutive hits so a flicker or a half-appeared
+            # gauge doesn't start a reel session: the first press of REEL
+            # lands on the water, and with the line out that pulls it back.
             self._bite_streak += 1
-            if self._bite_streak >= 2:
+            if self._bite_streak >= 3:
                 self._bite_streak = 0
                 self._reel_started = time.monotonic()
                 self._last_frame_time = self._reel_started
